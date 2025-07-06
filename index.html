@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Star Force Modular</title>
+  <style>
+    body { 
+      margin:0; 
+      background:#111; 
+      color:#fff; 
+      font-family:sans-serif; 
+      overflow:hidden;
+      position:fixed;
+      width:100%;
+      height:100%;
+      touch-action:none;
+    }
+    #gameCanvas { 
+      display: block; 
+      margin: 12px auto; 
+      background: #000; 
+      border: 2px solid #444;
+      max-width: 90vw;
+      max-height: 70vh;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+    .center { text-align: center; }
+    a { color: #ff0; }
+    
+    /* Mobile responsive adjustments */
+    @media (max-width: 600px) {
+      body { font-size: 14px; }
+      #gameCanvas { 
+        margin: 8px auto;
+        width: 300px !important;
+        height: 450px !important;
+        max-width: none;
+        max-height: none;
+      }
+      .center h2 { font-size: 18px; margin: 8px 0; }
+      .center ul { font-size: 12px; }
+      #controls-info { display: none; } /* Hide desktop controls info on mobile */
+    }
+    /* Mobile Controls */
+    #mobile-controls { 
+      display:none; 
+      position:fixed; 
+      left:0; 
+      right:0; 
+      bottom:0; 
+      z-index:10; 
+      pointer-events:none;
+      height:140px;
+      background:rgba(0,0,0,0.3);
+    }
+    #mobile-controls > div { 
+      width:100%; 
+      max-width:600px; 
+      margin:0 auto; 
+      position:relative; 
+      height:100%;
+    }
+    #mobile-controls button { 
+      width:60px; 
+      height:60px; 
+      pointer-events:auto; 
+      background:rgba(51,51,51,0.8); 
+      border:2px solid #666; 
+      color:#fff; 
+      font-size:14px; 
+      font-weight:bold;
+      border-radius:12px;
+      touch-action:manipulation;
+      user-select:none;
+      backdrop-filter:blur(5px);
+    }
+    #mobile-controls button:active { 
+      background:rgba(85,85,85,0.9); 
+      transform:scale(0.95);
+    }
+    #btn-fire { 
+      width:140px; 
+      height:120px; 
+      font-size:26px;
+      background:rgba(255,80,80,0.9) !important; /* Red for fire */
+      border:2px solid #ff6666 !important;
+    }
+    
+    #btn-bomb {
+      width:120px; 
+      height:100px; 
+      font-size:22px;
+      background:rgba(255,165,0,0.9) !important; /* Orange for bomb */
+      border:2px solid #ffaa33 !important;
+    }
+    
+    /* Virtual Joystick */
+    .joystick { 
+      position:absolute; 
+      left:20px; 
+      bottom:20px; 
+      width:160px; 
+      height:160px; 
+      background:rgba(255,255,255,0.1);
+      border:3px solid rgba(255,255,255,0.3);
+      border-radius:50%;
+      pointer-events:auto;
+    }
+    .joystick-knob {
+      position:absolute;
+      width:40px;
+      height:40px;
+      background:rgba(255,255,255,0.8);
+      border:2px solid #666;
+      border-radius:50%;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      pointer-events:none;
+    }
+    .joystick-knob.active {
+      background:rgba(255,255,255,1);
+      box-shadow:0 0 10px rgba(255,255,255,0.5);
+    }
+    
+    .joystick.input-detected {
+      border-color: rgba(0,255,0,0.6);
+      box-shadow: 0 0 15px rgba(0,255,0,0.3);
+    }
+    
+    .joystick-knob.input-detected {
+      background:rgba(0,255,0,0.9);
+      box-shadow:0 0 15px rgba(0,255,0,0.6);
+    }
+    
+    /* Invisible larger touch zone around joystick */
+    .joystick-touch-zone {
+      position: absolute;
+      left: -20px;
+      top: -20px;
+      width: 200px;
+      height: 200px;
+      background: transparent;
+      border-radius: 50%;
+      pointer-events: auto;
+      z-index: 1;
+    }
+    
+    @media (max-width: 600px) {
+      .joystick-touch-zone {
+        left: -30px;
+        top: -30px;
+        width: 200px;
+        height: 200px;
+      }
+    }
+    
+    /* D-pad layout (hidden) */
+    .dpad { 
+      display:none;
+    }
+    .dpad button { position:absolute; }
+    #btn-up { top:0; left:60px; }
+    #btn-down { bottom:0; left:60px; }
+    #btn-left { top:60px; left:0; }
+    #btn-right { top:60px; right:0; }
+    
+    /* Fire/Bomb buttons */
+    .action-buttons { 
+      position:absolute; 
+      right:15px; 
+      bottom:15px;
+      display:flex;
+      gap:8px;
+    }
+    .action-buttons button { 
+      display:block; 
+    }
+    
+    /* Responsive mobile controls */
+    @media (max-width: 600px) {
+      #mobile-controls { height:120px; }
+      #mobile-controls button { width:50px; height:50px; font-size:12px; }
+      #btn-fire { width:100px !important; height:85px !important; font-size:18px !important; }
+      #btn-bomb { width:85px !important; height:70px !important; font-size:16px !important; }
+      .joystick { width:140px; height:140px; left:10px; bottom:10px; }
+      .joystick-knob { width:35px; height:35px; }
+      .dpad { width:150px; height:150px; left:10px; bottom:10px; }
+      #btn-up { left:50px; }
+      #btn-down { left:50px; }
+      #btn-left { top:50px; }
+      #btn-right { top:50px; }
+      .action-buttons { right:8px; bottom:8px; gap:6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <h2>Star Force Modular Arcade Shooter</h2>
+    <div id="controls-info">
+      <b>Controls:</b> 
+      <ul style="display:inline-block;text-align:left;">
+        <li>Move: Arrow keys / WASD</li>
+        <li>Shoot: Spacebar</li>
+        <li>Bomb: B key</li>
+        <li>Restart: R or Space (after Game Over)</li>
+      </ul>
+    </div>
+  </div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div class="center" id="info"></div>
+  <div id="debug-log" style="position:fixed; top:10px; left:10px; background:rgba(0,0,0,0.8); color:#0f0; padding:8px; font-size:10px; max-width:300px; max-height:200px; overflow-y:auto; z-index:1000; display:none;"></div>
+  <div style="position:fixed; top:10px; right:10px; z-index:1001; display:none;">
+    <button id="debug-toggle" style="background:rgba(0,0,0,0.8); color:#0f0; border:1px solid #0f0; padding:4px 8px; font-size:10px; cursor:pointer;">Debug</button>
+  </div>
+  <!-- Mobile Controls Overlay -->
+  <div id="mobile-controls">
+    <div>
+      <!-- Virtual Joystick -->
+      <div class="joystick" id="joystick">
+        <div class="joystick-touch-zone" id="joystick-touch-zone"></div>
+        <div class="joystick-knob" id="joystick-knob"></div>
+      </div>
+      <!-- D-pad (fallback) -->
+      <div class="dpad">
+        <button id="btn-up">&#8593;</button>
+        <button id="btn-down">&#8595;</button>
+        <button id="btn-left">&#8592;</button>
+        <button id="btn-right">&#8594;</button>
+      </div>
+      <!-- Fire/Bomb -->
+      <div class="action-buttons">
+        <button id="force-start" style="width:80px; height:40px; font-size:14px; font-weight:bold; background:red; color:white; border:2px solid white; margin-bottom:8px; display:none;">START</button>
+        <button id="btn-fire">FIRE</button>
+        <button id="btn-bomb">BOMB</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
+
