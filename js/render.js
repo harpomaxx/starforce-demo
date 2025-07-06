@@ -1,4 +1,4 @@
-import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX } from './state.js';
+import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites } from './state.js';
 import { drawPlayer } from './player.js';
 import { drawEnemies } from './enemy.js';
 import { drawBoss } from './boss.js';
@@ -38,6 +38,68 @@ export function renderGame() {
     ctx.fill();
   }
   ctx.restore();
+  
+  // Draw spatial continents with integrated bases
+  for (let continent of state.spatialContinents) {
+    for (let row = 0; row < continent.height; row++) {
+      for (let col = 0; col < continent.width; col++) {
+        const x = continent.x + col * continent.squareSize;
+        const y = continent.y + row * continent.squareSize;
+        
+        // Draw continental structure (background)
+        if (continent.squares[row][col]) {
+          ctx.save();
+          ctx.globalAlpha = 0.4;
+          ctx.fillStyle = "#334155"; // Dark blue-gray for continent
+          ctx.fillRect(x, y, continent.squareSize, continent.squareSize);
+          ctx.strokeStyle = "#475569"; // Slightly lighter border
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
+          ctx.restore();
+        }
+        
+        // Draw integrated bases (foreground - interactive) with 2x2 sprites
+        if (continent.bases[row][col] && continent.bases[row][col].active) {
+          const baseInfo = continent.bases[row][col];
+          const baseType = baseInfo.type;
+          
+          // Get sprite pattern for this base type
+          const spriteData = baseSprites[baseType];
+          if (spriteData && spriteData.sprite) {
+            // Draw 2x2 sprite (each sub-unit is 12x12 pixels)
+            const subUnitSize = continent.squareSize / 2; // 12 pixels
+            
+            for (let spriteRow = 0; spriteRow < 2; spriteRow++) {
+              for (let spriteCol = 0; spriteCol < 2; spriteCol++) {
+                const subX = x + spriteCol * subUnitSize;
+                const subY = y + spriteRow * subUnitSize;
+                const color = spriteData.sprite[spriteRow][spriteCol];
+                
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.fillRect(subX, subY, subUnitSize, subUnitSize);
+                
+                // Add subtle border for definition
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(subX, subY, subUnitSize, subUnitSize);
+                ctx.restore();
+              }
+            }
+          } else {
+            // Fallback to solid color if no sprite data
+            ctx.save();
+            ctx.fillStyle = "#666";
+            ctx.fillRect(x, y, continent.squareSize, continent.squareSize);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
+            ctx.restore();
+          }
+        }
+      }
+    }
+  }
 
   // Enhanced Bomb Visual
   if (state.bombVisual) {
