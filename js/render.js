@@ -239,6 +239,21 @@ export function renderGame() {
     ctx.textAlign = 'right';
     ctx.fillText('Shield!', CANVAS_WIDTH-12, 54);
   }
+  
+  // Music controls info
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#888';
+  ctx.textAlign = 'left';
+  ctx.fillText('Music: M=Toggle, -/+=Vol, T=Test, G=TestGain, S=Simple', 12, CANVAS_HEIGHT - 35);
+  
+  // Music status
+  if (state.music.enabled) {
+    ctx.fillStyle = '#4a90e2';
+    ctx.fillText(`♪ ${(state.music.volume * 100).toFixed(0)}% - ${state.music.currentTrack || 'menu'}`, 12, CANVAS_HEIGHT - 18);
+  } else {
+    ctx.fillStyle = '#666';
+    ctx.fillText('♪ Music Off (Press M to enable)', 12, CANVAS_HEIGHT - 18);
+  }
   // Bomb cooldown overlay
   if (!state.gameOver && state.bombCount > 0 && now()-state.lastBomb < BOMB_COOLDOWN) {
     let cooldown = (BOMB_COOLDOWN - (now()-state.lastBomb)) / BOMB_COOLDOWN;

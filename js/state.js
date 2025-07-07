@@ -43,7 +43,19 @@ export const state = {
   _startInvincibilityAfterUnpause: false,
   screenShake: null,
   enemiesKilled: 0,
-  nextBossAt: 10000
+  nextBossAt: 10000,
+  // Background Music State
+  music: {
+    enabled: false, // Start disabled to prevent freeze issues
+    volume: 0.6, // Increased default volume
+    currentTrack: null,
+    targetTrack: 'menu',
+    isPlaying: false,
+    fadeVolume: 0,
+    crossfadeTime: 2000, // 2 seconds for crossfade
+    lastTrackChange: 0,
+    intensity: 0 // 0-1, affects music dynamics based on game state
+  }
 };
 
 export function resetGame() {
@@ -85,6 +97,9 @@ export function resetGame() {
   state.screenShake = null;
   state.enemiesKilled = 0;
   state.nextBossAt = 10000;
+  // Reset music target to menu, but preserve user settings
+  state.music.targetTrack = 'menu';
+  state.music.intensity = 0;
   for (let i = 0; i < 48; i++) {
     state.stars.push({
       x: Math.random() * CANVAS_WIDTH,

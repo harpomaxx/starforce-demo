@@ -107,6 +107,56 @@ export function setupInput() {
       // Ensure game starts immediately after restart
       state.paused = false;
     }
+    
+    // Music controls
+    if (e.code === "KeyM") {
+      // Toggle music on/off
+      state.music.enabled = !state.music.enabled;
+      console.log(`Music ${state.music.enabled ? 'enabled' : 'disabled'}`);
+      if (!state.music.enabled) {
+        // Import stopMusic function if music is disabled
+        import('./audio.js').then(audio => audio.stopMusic(500));
+      } else {
+        // When enabling music, ensure audio context is ready and force track change
+        import('./audio.js').then(audio => {
+          audio.initMusic();
+          // Force a track change to start music immediately
+          state.music.targetTrack = null; // Reset target to force change
+          console.log('Music enabled, forcing track start');
+        });
+      }
+    }
+    if (e.code === "Minus" || e.code === "NumpadSubtract") {
+      // Decrease music volume
+      state.music.volume = Math.max(0, state.music.volume - 0.1);
+      console.log(`Music volume: ${(state.music.volume * 100).toFixed(0)}%`);
+    }
+    if (e.code === "Equal" || e.code === "NumpadAdd") {
+      // Increase music volume (Equal is typically the + key without shift)
+      state.music.volume = Math.min(1, state.music.volume + 0.1);
+      console.log(`Music volume: ${(state.music.volume * 100).toFixed(0)}%`);
+    }
+    if (e.code === "KeyT") {
+      // Test music system
+      import('./audio.js').then(audio => {
+        console.log('Testing music system...');
+        audio.testMusicSystem();
+      });
+    }
+    if (e.code === "KeyG") {
+      // Test music system with main gain
+      import('./audio.js').then(audio => {
+        console.log('Testing music system with main gain...');
+        audio.testMusicSystemWithMainGain();
+      });
+    }
+    if (e.code === "KeyS") {
+      // Test simple music
+      import('./audio.js').then(audio => {
+        console.log('Testing simple music...');
+        audio.playSimpleMusic();
+      });
+    }
   });
   window.addEventListener('keyup', e => { state.keys[e.code] = false; });
 

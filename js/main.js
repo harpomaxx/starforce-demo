@@ -7,10 +7,13 @@ import { updateBullets } from './bullet.js';
 import { updateItems } from './items.js';
 import { renderGame } from './render.js';
 import { now, rectsCollide } from './utils.js';
-import { playSound } from './audio.js';
+import { playSound, initMusic, playMusic, stopMusic, setMusicVolume, updateMusicIntensity } from './audio.js';
 
 setupInput();
 resetGame();
+
+// Initialize music system (commented out to prevent freeze)
+// initMusic();
 
 let lastTime = 0;
 function showStartMessage() {
@@ -27,9 +30,72 @@ function showStartMessage() {
   ctx.restore();
 }
 
+// Music system management
+function updateMusicSystem() {
+  if (!state.music.enabled) return;
+  
+  // Only proceed if we have a valid audio context and user has interacted
+  try {
+    // Determine what track should be playing based on game state
+    let targetTrack = 'menu';
+    
+    if (!state.paused && !state.gameOver && state.gameStarted) {
+      if (state.boss && state.boss.alive) {
+        targetTrack = 'boss';
+      } else {
+        targetTrack = 'gameplay';
+      }
+    }
+    
+    // Handle track changes
+    if (state.music.targetTrack !== targetTrack) {
+      state.music.targetTrack = targetTrack;
+      state.music.lastTrackChange = now();
+      
+      if (state.music.enabled) {
+        // Initialize music system only when needed and after user interaction
+        initMusic();
+        playMusic(targetTrack, state.music.crossfadeTime);
+        state.music.currentTrack = targetTrack;
+        state.music.isPlaying = true;
+      }
+    }
+    
+    // Update music intensity based on game state
+    if (state.music.isPlaying && !state.paused && !state.gameOver) {
+      let intensity = 0;
+      
+      // Base intensity on various game factors
+      if (state.boss && state.boss.alive) {
+        intensity = 0.8 + ((state.boss.hits || 0) / 20); // Max intensity during boss fights
+      } else {
+        // Build intensity based on enemies on screen and player status
+        intensity += Math.min(state.enemies.length / 10, 0.3); // More enemies = more intensity
+        intensity += Math.min(state.enemyBullets.length / 15, 0.2); // More bullets = more intensity
+        intensity += (state.lives < 2) ? 0.3 : 0; // Low health = more intensity
+        intensity += state.shield ? -0.2 : 0; // Shield = less intensity
+      }
+      
+      intensity = Math.max(0, Math.min(1, intensity));
+      state.music.intensity = intensity;
+      updateMusicIntensity(intensity);
+    }
+    
+    // Set music volume based on user settings
+    setMusicVolume(state.music.enabled ? state.music.volume : 0);
+  } catch (error) {
+    // Silently handle any audio context errors to prevent game freeze
+    console.warn('Music system error:', error);
+    state.music.enabled = false;
+  }
+}
+
 function gameLoop(ts) {
   let dt = ts - lastTime;
   lastTime = ts;
+  
+  // ==================== MUSIC MANAGEMENT ====================
+  updateMusicSystem();
   
   // Debug: Log every 60 frames (about once per second)
   if (!window.frameCount) window.frameCount = 0;
