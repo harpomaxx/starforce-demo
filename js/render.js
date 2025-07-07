@@ -58,7 +58,7 @@ export function renderGame() {
           ctx.restore();
         }
         
-        // Draw integrated bases (foreground - interactive) with 2x2 sprites
+        // Draw integrated bases (foreground - interactive) with 16x16 sprites
         if (continent.bases[row][col] && continent.bases[row][col].active) {
           const baseInfo = continent.bases[row][col];
           const baseType = baseInfo.type;
@@ -66,26 +66,28 @@ export function renderGame() {
           // Get sprite pattern for this base type
           const spriteData = baseSprites[baseType];
           if (spriteData && spriteData.sprite) {
-            // Draw 2x2 sprite (each sub-unit is 12x12 pixels)
-            const subUnitSize = continent.squareSize / 2; // 12 pixels
+            // Draw 16x16 sprite (each pixel is 1.5x1.5 pixels to fit in 24x24 square)
+            const pixelSize = continent.squareSize / 16; // 1.5 pixels per sprite pixel
             
-            for (let spriteRow = 0; spriteRow < 2; spriteRow++) {
-              for (let spriteCol = 0; spriteCol < 2; spriteCol++) {
-                const subX = x + spriteCol * subUnitSize;
-                const subY = y + spriteRow * subUnitSize;
+            for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
+              for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
+                const pixelX = x + spriteCol * pixelSize;
+                const pixelY = y + spriteRow * pixelSize;
                 const color = spriteData.sprite[spriteRow][spriteCol];
                 
                 ctx.save();
                 ctx.fillStyle = color;
-                ctx.fillRect(subX, subY, subUnitSize, subUnitSize);
-                
-                // Add subtle border for definition
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(subX, subY, subUnitSize, subUnitSize);
+                ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
                 ctx.restore();
               }
             }
+            
+            // Add subtle border for definition around the entire base
+            ctx.save();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
+            ctx.restore();
           } else {
             // Fallback to solid color if no sprite data
             ctx.save();

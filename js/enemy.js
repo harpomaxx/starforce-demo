@@ -141,7 +141,7 @@ export function updateEnemies(dt) {
 
   // ENEMY COLLISION WITH PLAYER
   for (let e of state.enemies) {
-    if (rectsCollide(state.player, e)) {
+    if (!state.invincible && rectsCollide(state.player, e)) {
       if (state.shield) {
         state.shieldHits--;
         if (state.shieldHits <= 0) {
