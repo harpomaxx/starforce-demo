@@ -47,7 +47,7 @@ export const state = {
   // Background Music State
   music: {
     enabled: false, // Start disabled to prevent freeze issues
-    volume: 0.6, // Increased default volume
+    volume: 0.3, // Moderate default volume for better mixing with game sounds
     currentTrack: null,
     targetTrack: 'menu',
     isPlaying: false,
@@ -55,8 +55,21 @@ export const state = {
     crossfadeTime: 2000, // 2 seconds for crossfade
     lastTrackChange: 0,
     intensity: 0 // 0-1, affects music dynamics based on game state
+  },
+  // Visual feedback notifications
+  notification: {
+    message: null,
+    startTime: 0,
+    duration: 2000 // 2 seconds
   }
 };
+
+// Show a temporary notification message
+export function showNotification(message, duration = 2000) {
+  state.notification.message = message;
+  state.notification.startTime = Date.now();
+  state.notification.duration = duration;
+}
 
 export function resetGame() {
   state.player = { x: 200, y: 540, w: PLAYER_WIDTH, h: PLAYER_HEIGHT, alive: true };
@@ -100,6 +113,9 @@ export function resetGame() {
   // Reset music target to menu, but preserve user settings
   state.music.targetTrack = 'menu';
   state.music.intensity = 0;
+  // Reset notifications
+  state.notification.message = null;
+  state.notification.startTime = 0;
   for (let i = 0; i < 48; i++) {
     state.stars.push({
       x: Math.random() * CANVAS_WIDTH,

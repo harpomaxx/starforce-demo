@@ -1,4 +1,4 @@
-import { state, resetGame } from './state.js';
+import { state, resetGame, showNotification } from './state.js';
 
 // Debug control - can be enabled via URL parameter ?debug=1 or localStorage
 let debugEnabled = false;
@@ -111,30 +111,119 @@ export function setupInput() {
     // Music controls
     if (e.code === "KeyM") {
       // Toggle music on/off
+      console.log('=== M KEY PRESSED ===');
+      console.log('Current music state:', JSON.stringify(state.music, null, 2));
+      
       state.music.enabled = !state.music.enabled;
       console.log(`Music ${state.music.enabled ? 'enabled' : 'disabled'}`);
+      console.log('New music state:', JSON.stringify(state.music, null, 2));
+      
+      // Show visual feedback
+      showNotification(`Music ${state.music.enabled ? 'Enabled' : 'Disabled'}`);
+      
       if (!state.music.enabled) {
         // Import stopMusic function if music is disabled
+        console.log('Stopping music...');
         import('./audio.js').then(audio => audio.stopMusic(500));
       } else {
-        // When enabling music, ensure audio context is ready and force track change
+        // When enabling music, ensure audio context is ready and start music immediately
+        console.log('Enabling music, initializing audio system...');
         import('./audio.js').then(audio => {
-          audio.initMusic();
-          // Force a track change to start music immediately
-          state.music.targetTrack = null; // Reset target to force change
-          console.log('Music enabled, forcing track start');
+          console.log('=== INPUT HANDLER: Audio module imported successfully ===');
+          console.log('INPUT HANDLER: Setting user gesture context...');
+          audio.setUserGestureContext(true);
+          
+          console.log('INPUT HANDLER: Calling initMusic...');
+          const initResult = audio.initMusic();
+          console.log(`INPUT HANDLER: initMusic returned: ${initResult}`);
+          
+          if (initResult) {
+            console.log('INPUT HANDLER: Music system initialized successfully');
+            console.log('INPUT HANDLER: Current game state - paused:', state.paused, 'gameOver:', state.gameOver, 'gameStarted:', state.gameStarted);
+            
+            // Determine what track should be playing immediately based on game state
+            let trackToPlay = 'menu';
+            if (!state.paused && !state.gameOver && state.gameStarted) {
+              if (state.boss && state.boss.alive) {
+                trackToPlay = 'boss';
+              } else {
+                trackToPlay = 'gameplay';
+              }
+            }
+            
+            console.log(`INPUT HANDLER: Determined track to play: ${trackToPlay}`);
+            console.log(`INPUT HANDLER: Starting music immediately: ${trackToPlay}`);
+            
+            // Start music immediately in the user gesture context
+            console.log(`INPUT HANDLER: About to call playMusic with track: ${trackToPlay}`);
+            const playResult = audio.playMusic(trackToPlay, state.music.crossfadeTime);
+            console.log(`INPUT HANDLER: playMusic returned: ${playResult}`);
+            
+            if (playResult) {
+              state.music.currentTrack = trackToPlay;
+              state.music.targetTrack = trackToPlay;
+              state.music.isPlaying = true;
+              console.log(`Music started successfully: ${trackToPlay}`);
+              console.log(`Music state after start:`, JSON.stringify(state.music, null, 2));
+            } else {
+              console.error('Failed to start music - playMusic returned false');
+              state.music.isPlaying = false;
+              console.log(`Music state after failure:`, JSON.stringify(state.music, null, 2));
+            }
+            
+            // Set the music volume with fade-in
+            audio.setMusicVolume(state.music.volume, state.music.crossfadeTime);
+            console.log(`Music volume fading to ${(state.music.volume * 100).toFixed(0)}% over ${state.music.crossfadeTime}ms`);
+            
+            // Clear user gesture context after operations complete
+            audio.setUserGestureContext(false);
+          } else {
+            console.error('Failed to initialize music system');
+            state.music.enabled = false; // Disable if initialization failed
+          }
+        }).catch(err => {
+          console.error('Error importing audio module:', err);
+          state.music.enabled = false; // Disable if import failed
         });
       }
     }
     if (e.code === "Minus" || e.code === "NumpadSubtract") {
       // Decrease music volume
+      const oldVolume = state.music.volume;
       state.music.volume = Math.max(0, state.music.volume - 0.1);
-      console.log(`Music volume: ${(state.music.volume * 100).toFixed(0)}%`);
+      console.log(`Music volume decreased from ${(oldVolume * 100).toFixed(0)}% to ${(state.music.volume * 100).toFixed(0)}%`);
+      console.log('Music enabled:', state.music.enabled);
+      
+      // Show visual feedback
+      showNotification(`Volume: ${(state.music.volume * 100).toFixed(0)}%`, 1000);
+      
+      // Apply volume change immediately if music is enabled
+      if (state.music.enabled) {
+        import('./audio.js').then(audio => {
+          audio.setMusicVolume(state.music.volume);
+        }).catch(err => {
+          console.error('Error setting music volume:', err);
+        });
+      }
     }
     if (e.code === "Equal" || e.code === "NumpadAdd") {
       // Increase music volume (Equal is typically the + key without shift)
+      const oldVolume = state.music.volume;
       state.music.volume = Math.min(1, state.music.volume + 0.1);
-      console.log(`Music volume: ${(state.music.volume * 100).toFixed(0)}%`);
+      console.log(`Music volume increased from ${(oldVolume * 100).toFixed(0)}% to ${(state.music.volume * 100).toFixed(0)}%`);
+      console.log('Music enabled:', state.music.enabled);
+      
+      // Show visual feedback
+      showNotification(`Volume: ${(state.music.volume * 100).toFixed(0)}%`, 1000);
+      
+      // Apply volume change immediately if music is enabled
+      if (state.music.enabled) {
+        import('./audio.js').then(audio => {
+          audio.setMusicVolume(state.music.volume);
+        }).catch(err => {
+          console.error('Error setting music volume:', err);
+        });
+      }
     }
     if (e.code === "KeyT") {
       // Test music system
@@ -148,6 +237,20 @@ export function setupInput() {
       import('./audio.js').then(audio => {
         console.log('Testing music system with main gain...');
         audio.testMusicSystemWithMainGain();
+      });
+    }
+    if (e.code === "KeyC") {
+      // Check audio context state
+      import('./audio.js').then(audio => {
+        console.log('Checking audio context state...');
+        audio.checkAudioContextState();
+      });
+    }
+    if (e.code === "KeyQ") {
+      // Test basic audio functionality
+      import('./audio.js').then(audio => {
+        console.log('Testing basic audio functionality...');
+        audio.testBasicAudio();
       });
     }
     if (e.code === "KeyS") {

@@ -2,15 +2,29 @@ let audioCtx = null;
 let musicNodes = null; // Will store active music generation nodes
 
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // Resume if suspended
-  if (audioCtx.state === 'suspended') {
-    console.log('Resuming suspended audio context...');
-    audioCtx.resume().then(() => {
-      console.log('Audio context resumed successfully');
-    }).catch(err => {
-      console.warn('Failed to resume audio context:', err);
-    });
+  try {
+    if (!audioCtx) {
+      console.log('Creating new audio context...');
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        throw new Error('Web Audio API not supported in this browser');
+      }
+      audioCtx = new AudioContextClass();
+      console.log('Audio context created successfully, state:', audioCtx.state);
+    }
+    
+    // Resume if suspended
+    if (audioCtx.state === 'suspended') {
+      console.log('Resuming suspended audio context...');
+      audioCtx.resume().then(() => {
+        console.log('Audio context resumed successfully');
+      }).catch(err => {
+        console.error('Failed to resume audio context:', err);
+      });
+    }
+  } catch (error) {
+    console.error('Error in ensureAudio:', error);
+    throw error; // Re-throw so callers know it failed
   }
 }
 
@@ -147,12 +161,12 @@ const musicTracks = {
     name: "Space Menu",
     tempo: 0.5, // Slow, ambient
     bassFreq: 55, // Low bass note (A1)
-    bassVolume: 0.15, // Increased volume
+    bassVolume: 0.08, // Reduced volume for better mixing
     padFreqs: [110, 165, 220], // Harmonious pad frequencies
-    padVolume: 0.12, // Increased volume
+    padVolume: 0.06, // Reduced volume for better mixing
     arpFreqs: [440, 523, 659], // A4, C5, E5 - Major triad
     arpSpeed: 2000, // ms between arp notes
-    arpVolume: 0.08, // Increased volume
+    arpVolume: 0.04, // Reduced volume for better mixing
     filterFreq: 800,
     reverb: 0.3
   },
@@ -161,12 +175,12 @@ const musicTracks = {
     name: "Deep Space Exploration",
     tempo: 0.7,
     bassFreq: 60, // Slightly higher bass
-    bassVolume: 0.18, // Increased volume
+    bassVolume: 0.08, // Reduced volume for better mixing
     padFreqs: [120, 180, 240, 320],
-    padVolume: 0.15, // Increased volume
+    padVolume: 0.06, // Reduced volume for better mixing
     arpFreqs: [330, 415, 523, 659], // More complex arpeggio
     arpSpeed: 1500,
-    arpVolume: 0.08, // Increased volume
+    arpVolume: 0.04, // Reduced volume for better mixing
     filterFreq: 1200,
     reverb: 0.4
   },
@@ -175,12 +189,12 @@ const musicTracks = {
     name: "Battle Stations",
     tempo: 1.2, // Faster, more intense
     bassFreq: 80, // Higher, more aggressive bass
-    bassVolume: 0.25, // Increased volume
+    bassVolume: 0.10, // Reduced volume for better mixing
     padFreqs: [160, 200, 240, 320, 400], // Dense harmonic layers
-    padVolume: 0.18, // Increased volume
+    padVolume: 0.08, // Reduced volume for better mixing
     arpFreqs: [220, 277, 330, 415, 523], // Minor scale for tension
     arpSpeed: 800, // Rapid arpeggiation
-    arpVolume: 0.12, // Increased volume
+    arpVolume: 0.06, // Reduced volume for better mixing
     filterFreq: 2000,
     reverb: 0.2 // Less reverb for more aggressive sound
   }
@@ -195,56 +209,104 @@ let activeMusicNodes = {
   arpeggiatorInterval: null
 };
 
+// Flag to prevent concurrent music creation
+let isCreatingMusic = false;
+
+// Track if we're in a user gesture context (for browser policy compliance)
+let inUserGestureContext = false;
+
 // Initialize background music system
 export function initMusic() {
   try {
+    console.log('initMusic: Starting music system initialization...');
     ensureAudio();
+    
     if (!audioCtx) {
-      console.log('No audio context in initMusic');
-      return;
+      console.error('initMusic: No audio context available after ensureAudio');
+      return false;
     }
+    
+    console.log('initMusic: Audio context available, state:', audioCtx.state);
     
     // Create main music gain node for volume control
     if (!activeMusicNodes.mainGain) {
-      console.log('Creating main music gain node');
+      console.log('initMusic: Creating main music gain node');
       activeMusicNodes.mainGain = audioCtx.createGain();
       activeMusicNodes.mainGain.connect(audioCtx.destination);
       activeMusicNodes.mainGain.gain.value = 0;
-      console.log('Main gain node created and connected');
+      console.log('initMusic: Main gain node created and connected successfully');
     } else {
-      console.log('Main gain node already exists');
+      console.log('initMusic: Main gain node already exists');
     }
+    
+    console.log('initMusic: Music system initialization completed successfully');
+    return true;
   } catch (error) {
-    console.warn('Error initializing music system:', error);
+    console.error('initMusic: Error initializing music system:', error);
+    console.error('initMusic: Stack trace:', error.stack);
+    return false;
   }
+}
+
+// Set user gesture context (call this before audio operations from input handlers)
+export function setUserGestureContext(inGesture) {
+  inUserGestureContext = inGesture;
+  console.log(`Audio: User gesture context set to ${inGesture}`);
 }
 
 // Start playing a specific music track
 export function playMusic(trackName, fadeInTime = 2000) {
-  if (!trackName || !musicTracks[trackName]) return;
+  if (!trackName || !musicTracks[trackName]) {
+    console.error(`playMusic: Invalid track name "${trackName}" or track not found`);
+    console.error('playMusic: Available tracks:', Object.keys(musicTracks));
+    return false;
+  }
+  
+  console.log(`playMusic: Starting track "${trackName}" with fade-in time ${fadeInTime}ms`);
+  
+  // Prevent concurrent music creation
+  if (isCreatingMusic) {
+    console.log('playMusic: Already creating music, ignoring duplicate call');
+    return false;
+  }
   
   try {
+    isCreatingMusic = true;
+    console.log('playMusic: Set isCreatingMusic flag to true');
+    
+    // DEFENSIVE: Always start with clean arrays at the very beginning
+    console.log(`playMusic: Pre-cleanup check - ${activeMusicNodes.oscillators.length} oscillators in array`);
+    activeMusicNodes.oscillators = [];
+    activeMusicNodes.gains = [];
+    activeMusicNodes.filters = [];
+    if (activeMusicNodes.arpeggiatorInterval) {
+      clearInterval(activeMusicNodes.arpeggiatorInterval);
+      activeMusicNodes.arpeggiatorInterval = null;
+    }
     ensureAudio();
     if (!audioCtx) {
       console.log('No audio context available');
-      return;
+      isCreatingMusic = false;
+      return false;
     }
     
     // Wait for audio context to be running
     if (audioCtx.state === 'suspended') {
       console.log('Audio context suspended, attempting to resume...');
+      isCreatingMusic = false;
       audioCtx.resume().then(() => {
         console.log('Audio context resumed, starting music...');
         playMusic(trackName, fadeInTime); // Retry after resume
       }).catch(err => {
         console.warn('Failed to resume audio context for music:', err);
       });
-      return;
+      return false;
     }
     
     if (audioCtx.state !== 'running') {
       console.log(`Audio context state: ${audioCtx.state}, cannot start music`);
-      return;
+      isCreatingMusic = false;
+      return false;
     }
     
     console.log(`Starting music track: ${trackName}`);
@@ -252,17 +314,43 @@ export function playMusic(trackName, fadeInTime = 2000) {
     
     if (!activeMusicNodes.mainGain) {
       console.error('Main gain node not created');
-      return;
+      isCreatingMusic = false;
+      return false;
     }
+    
+    // Check if we're already playing music and prevent duplicate starts
+    if (activeMusicNodes.oscillators.length > 0) {
+      console.log('Music is already playing, stopping existing music first');
+      stopMusic(0); // Immediate stop
+      
+      // Wait a brief moment for cleanup before starting new music
+      setTimeout(() => {
+        console.log('Retrying playMusic after cleanup...');
+        isCreatingMusic = false; // Reset flag before retry
+        playMusic(trackName, fadeInTime);
+      }, 150);
+      isCreatingMusic = false;
+      return false;
+    }
+    
+    console.log('No existing oscillators, proceeding with music creation...');
+    
+    // DEFENSIVE: Clear all arrays before creating new oscillators
+    // This ensures we start with a completely clean slate
+    activeMusicNodes.oscillators = [];
+    activeMusicNodes.gains = [];
+    activeMusicNodes.filters = [];
+    if (activeMusicNodes.arpeggiatorInterval) {
+      clearInterval(activeMusicNodes.arpeggiatorInterval);
+      activeMusicNodes.arpeggiatorInterval = null;
+    }
+    console.log('Cleared all music node arrays before creating new oscillators');
     
     const track = musicTracks[trackName];
     const currentTime = audioCtx.currentTime;
     
     console.log(`Track config:`, track);
     console.log(`Audio context time: ${currentTime}`);
-    
-    // Clean up any existing music
-    stopMusic(0); // Immediate stop for crossfade
   
   // Create bass oscillator (sustained low drone)
   const bassOsc = audioCtx.createOscillator();
@@ -318,10 +406,12 @@ export function playMusic(trackName, fadeInTime = 2000) {
     lfo.connect(lfoGain);
     lfoGain.connect(padOsc.detune);
     
-    activeMusicNodes.oscillators.push(lfo);
-    activeMusicNodes.gains.push(lfoGain);
+    // NOTE: LFO oscillators are started immediately and don't need to be in the main array
+    // since they're not started with the main forEach loop
+    // activeMusicNodes.oscillators.push(lfo);  // REMOVED - this was causing the bug
+    activeMusicNodes.gains.push(lfoGain);  // Keep gain for cleanup
     
-    lfo.start(currentTime);
+    lfo.start(currentTime);  // Start immediately
   });
   
   // Create arpeggiator pattern
@@ -369,48 +459,94 @@ export function playMusic(trackName, fadeInTime = 2000) {
   setTimeout(startArpeggiator, 1000);
   console.log('Arpeggiator scheduled to start in 1 second');
   
-  // Fade in the main volume
-  console.log(`Setting up fade in from 0 to 1 over ${fadeInTime}ms`);
+  // Fade in the main volume to user's volume setting
+  console.log(`Setting up fade in from 0 to user volume over ${fadeInTime}ms`);
   activeMusicNodes.mainGain.gain.value = 0;
   activeMusicNodes.mainGain.gain.setValueAtTime(0, currentTime);
-  activeMusicNodes.mainGain.gain.linearRampToValueAtTime(1, currentTime + fadeInTime / 1000);
+  // Note: Volume will be applied by setMusicVolume() call from input handler
   console.log('Music should be playing now');
+  isCreatingMusic = false; // Reset flag on successful completion
+  return true;
   
   } catch (error) {
-    console.warn('Error playing music:', error);
-    // Disable music system if there are consistent errors
-    if (typeof window !== 'undefined') {
-      console.log('Disabling music system due to error');
+    console.error('playMusic: Error playing music:', error);
+    console.error('playMusic: Error stack:', error.stack);
+    console.error('playMusic: Track name:', trackName);
+    console.error('playMusic: Audio context state:', audioCtx ? audioCtx.state : 'null');
+    console.error('playMusic: Main gain node exists:', !!activeMusicNodes.mainGain);
+    
+    // Clean up any partially created nodes immediately
+    console.log(`playMusic ERROR: Cleaning up ${activeMusicNodes.oscillators.length} partially created oscillators`);
+    activeMusicNodes.oscillators.forEach((osc, i) => {
+      try { 
+        console.log(`playMusic ERROR: Stopping oscillator ${i}`);
+        osc.stop(); 
+      } catch (e) {
+        console.log(`playMusic ERROR: Oscillator ${i} couldn't be stopped:`, e.message);
+      }
+    });
+    
+    // Clear arpeggiator if running
+    if (activeMusicNodes.arpeggiatorInterval) {
+      clearInterval(activeMusicNodes.arpeggiatorInterval);
+      activeMusicNodes.arpeggiatorInterval = null;
     }
+    
+    // Reset all arrays immediately
+    activeMusicNodes.oscillators = [];
+    activeMusicNodes.gains = [];
+    activeMusicNodes.filters = [];
+    console.log('playMusic ERROR: All arrays cleared');
+    
+    // Don't disable the music system immediately - let user try again
+    console.warn('playMusic: Music playback failed, but system remains enabled for retry');
+    isCreatingMusic = false; // Reset flag on error
+    return false;
   }
 }
 
 // Stop background music
 export function stopMusic(fadeOutTime = 1000) {
-  if (!activeMusicNodes.mainGain) return;
+  if (!activeMusicNodes.mainGain) {
+    console.log('stopMusic: No main gain node to stop');
+    return;
+  }
   
-  const currentTime = audioCtx.currentTime;
+  console.log(`stopMusic: Stopping music with ${fadeOutTime}ms fade out`);
+  
+  const currentTime = audioCtx ? audioCtx.currentTime : 0;
   
   // Fade out
-  if (fadeOutTime > 0) {
-    activeMusicNodes.mainGain.gain.linearRampToValueAtTime(0, currentTime + fadeOutTime / 1000);
+  if (fadeOutTime > 0 && audioCtx) {
+    try {
+      activeMusicNodes.mainGain.gain.linearRampToValueAtTime(0, currentTime + fadeOutTime / 1000);
+    } catch (error) {
+      console.warn('stopMusic: Error during fade out:', error);
+      activeMusicNodes.mainGain.gain.value = 0;
+    }
   } else {
     activeMusicNodes.mainGain.gain.value = 0;
   }
   
-  // Clean up nodes after fade out
-  setTimeout(() => {
+  // Clean up nodes - immediate cleanup if no fade out
+  const cleanupDelay = fadeOutTime > 0 ? Math.max(fadeOutTime, 50) : 0;
+  
+  const cleanup = () => {
+    console.log(`stopMusic: Cleaning up ${activeMusicNodes.oscillators.length} oscillators`);
+    
     // Stop oscillators
-    activeMusicNodes.oscillators.forEach(osc => {
+    activeMusicNodes.oscillators.forEach((osc, i) => {
       try {
+        console.log(`stopMusic: Stopping oscillator ${i}`);
         osc.stop();
       } catch (e) {
-        // Oscillator might already be stopped
+        console.log(`stopMusic: Oscillator ${i} already stopped`);
       }
     });
     
     // Clear arpeggiator
     if (activeMusicNodes.arpeggiatorInterval) {
+      console.log('stopMusic: Clearing arpeggiator interval');
       clearInterval(activeMusicNodes.arpeggiatorInterval);
       activeMusicNodes.arpeggiatorInterval = null;
     }
@@ -419,17 +555,75 @@ export function stopMusic(fadeOutTime = 1000) {
     activeMusicNodes.oscillators = [];
     activeMusicNodes.gains = [];
     activeMusicNodes.filters = [];
-  }, fadeOutTime + 100);
+    
+    // Reset creation flag
+    isCreatingMusic = false;
+    
+    console.log('stopMusic: Cleanup completed');
+  };
+  
+  if (cleanupDelay === 0) {
+    cleanup(); // Immediate cleanup
+  } else {
+    setTimeout(cleanup, cleanupDelay); // Delayed cleanup
+  }
 }
 
 // Set music volume (0-1)
-export function setMusicVolume(volume) {
+export function setMusicVolume(volume, fadeTime = 0) {
   try {
-    if (activeMusicNodes.mainGain) {
-      activeMusicNodes.mainGain.gain.value = Math.max(0, Math.min(1, volume));
+    if (activeMusicNodes.mainGain && audioCtx) {
+      const targetVolume = Math.max(0, Math.min(1, volume));
+      console.log(`Setting music volume to ${(targetVolume * 100).toFixed(0)}% ${fadeTime > 0 ? `over ${fadeTime}ms` : 'immediately'}`);
+      
+      if (fadeTime > 0) {
+        // Fade to new volume
+        activeMusicNodes.mainGain.gain.linearRampToValueAtTime(
+          targetVolume, 
+          audioCtx.currentTime + fadeTime / 1000
+        );
+      } else {
+        // Set immediately
+        activeMusicNodes.mainGain.gain.value = targetVolume;
+      }
     }
   } catch (error) {
     console.warn('Error setting music volume:', error);
+  }
+}
+
+// Debug function to check audio context state
+export function checkAudioContextState() {
+  try {
+    console.log('=== AUDIO CONTEXT STATE CHECK ===');
+    console.log('audioCtx exists:', !!audioCtx);
+    
+    if (audioCtx) {
+      console.log('Audio context state:', audioCtx.state);
+      console.log('Audio context sampleRate:', audioCtx.sampleRate);
+      console.log('Audio context currentTime:', audioCtx.currentTime);
+      console.log('Audio context destination:', audioCtx.destination);
+    } else {
+      console.log('Audio context not created yet');
+    }
+    
+    console.log('activeMusicNodes.mainGain exists:', !!activeMusicNodes.mainGain);
+    if (activeMusicNodes.mainGain) {
+      console.log('Main gain value:', activeMusicNodes.mainGain.gain.value);
+    }
+    
+    console.log('Active oscillators:', activeMusicNodes.oscillators.length);
+    console.log('Active gains:', activeMusicNodes.gains.length);
+    console.log('Active filters:', activeMusicNodes.filters.length);
+    console.log('Arpeggiator running:', !!activeMusicNodes.arpeggiatorInterval);
+    
+    // Check browser support
+    console.log('AudioContext supported:', !!(window.AudioContext || window.webkitAudioContext));
+    console.log('User agent:', navigator.userAgent);
+    
+    console.log('=== END AUDIO CONTEXT STATE CHECK ===');
+  } catch (error) {
+    console.error('Error checking audio context state:', error);
   }
 }
 
@@ -505,6 +699,89 @@ export function testMusicSystemWithMainGain() {
     console.log('Music system test tone played through main gain');
   } catch (error) {
     console.error('Test music system with main gain error:', error);
+  }
+}
+
+// Simple test to verify Web Audio API is working
+export function testBasicAudio() {
+  try {
+    console.log('=== BASIC AUDIO TEST ===');
+    console.log('Testing Web Audio API support...');
+    
+    // Test 1: Check if AudioContext is available
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      console.error('TEST FAILED: Web Audio API not supported');
+      return false;
+    }
+    console.log('✓ Web Audio API is supported');
+    
+    // Test 2: Create AudioContext
+    let testAudioCtx;
+    try {
+      testAudioCtx = new AudioContextClass();
+      console.log('✓ AudioContext created successfully');
+      console.log('  - State:', testAudioCtx.state);
+      console.log('  - Sample rate:', testAudioCtx.sampleRate);
+    } catch (error) {
+      console.error('TEST FAILED: Cannot create AudioContext:', error);
+      return false;
+    }
+    
+    // Test 3: Create and connect nodes
+    try {
+      const osc = testAudioCtx.createOscillator();
+      const gain = testAudioCtx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(testAudioCtx.destination);
+      
+      console.log('✓ Audio nodes created and connected');
+    } catch (error) {
+      console.error('TEST FAILED: Cannot create audio nodes:', error);
+      testAudioCtx.close();
+      return false;
+    }
+    
+    // Test 4: Play a very short beep
+    try {
+      if (testAudioCtx.state === 'suspended') {
+        console.log('Resuming audio context for test...');
+        testAudioCtx.resume();
+      }
+      
+      const osc = testAudioCtx.createOscillator();
+      const gain = testAudioCtx.createGain();
+      
+      osc.frequency.value = 880; // A5 note
+      osc.type = 'sine';
+      gain.gain.value = 0.05; // Very quiet
+      
+      osc.connect(gain);
+      gain.connect(testAudioCtx.destination);
+      
+      osc.start();
+      osc.stop(testAudioCtx.currentTime + 0.1); // 100ms beep
+      
+      console.log('✓ Test beep played (100ms)');
+    } catch (error) {
+      console.error('TEST FAILED: Cannot play test sound:', error);
+      testAudioCtx.close();
+      return false;
+    }
+    
+    // Clean up
+    setTimeout(() => {
+      testAudioCtx.close();
+      console.log('✓ Test audio context closed');
+    }, 200);
+    
+    console.log('✓ ALL TESTS PASSED - Web Audio API is working!');
+    console.log('=== END BASIC AUDIO TEST ===');
+    return true;
+  } catch (error) {
+    console.error('TEST FAILED: Unexpected error in basic audio test:', error);
+    return false;
   }
 }
 

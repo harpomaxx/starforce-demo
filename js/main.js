@@ -12,8 +12,7 @@ import { playSound, initMusic, playMusic, stopMusic, setMusicVolume, updateMusic
 setupInput();
 resetGame();
 
-// Initialize music system (commented out to prevent freeze)
-// initMusic();
+// Music system will be initialized when user presses M (user gesture required)
 
 let lastTime = 0;
 function showStartMessage() {
@@ -32,6 +31,11 @@ function showStartMessage() {
 
 // Music system management
 function updateMusicSystem() {
+  // Debug logging (only log every 60 frames to avoid spam)
+  if (window.frameCount % 60 === 0) {
+    console.log('updateMusicSystem called - enabled:', state.music.enabled);
+  }
+  
   if (!state.music.enabled) return;
   
   // Only proceed if we have a valid audio context and user has interacted
@@ -47,17 +51,28 @@ function updateMusicSystem() {
       }
     }
     
-    // Handle track changes
-    if (state.music.targetTrack !== targetTrack) {
+    // Handle track changes - only change if we need to switch tracks
+    const shouldChange = state.music.targetTrack !== targetTrack || (state.music.enabled && !state.music.isPlaying);
+    
+    if (shouldChange) {
+      console.log(`Music track change triggered:`);
+      console.log(`  - targetTrack: ${state.music.targetTrack} -> ${targetTrack}`);
+      console.log(`  - currentTrack: ${state.music.currentTrack}`);
+      console.log(`  - isPlaying: ${state.music.isPlaying}`);
+      console.log(`  - enabled: ${state.music.enabled}`);
+      console.log(`  - Change reason: ${state.music.targetTrack !== targetTrack ? 'track mismatch' : 'not playing'}`);
+      
       state.music.targetTrack = targetTrack;
       state.music.lastTrackChange = now();
       
       if (state.music.enabled) {
-        // Initialize music system only when needed and after user interaction
-        initMusic();
-        playMusic(targetTrack, state.music.crossfadeTime);
-        state.music.currentTrack = targetTrack;
-        state.music.isPlaying = true;
+        // Only update state tracking - don't actually start music from game loop
+        // Music starting is handled directly by input handlers to satisfy browser policy
+        console.log(`Game loop detected track should be: ${targetTrack} (currently: ${state.music.currentTrack})`);
+        console.log(`NOTE: Game loop does NOT start music - this should be handled by input handlers`);
+        
+        // Update target track for UI purposes, but don't start music here
+        state.music.targetTrack = targetTrack;
       }
     }
     

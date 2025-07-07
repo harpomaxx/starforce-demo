@@ -244,7 +244,7 @@ export function renderGame() {
   ctx.font = '12px monospace';
   ctx.fillStyle = '#888';
   ctx.textAlign = 'left';
-  ctx.fillText('Music: M=Toggle, -/+=Vol, T=Test, G=TestGain, S=Simple', 12, CANVAS_HEIGHT - 35);
+  ctx.fillText('Music: M=Toggle, -/+=Vol, T=Test, G=TestGain, S=Simple, C=Check, Q=Basic', 12, CANVAS_HEIGHT - 35);
   
   // Music status
   if (state.music.enabled) {
@@ -253,6 +253,24 @@ export function renderGame() {
   } else {
     ctx.fillStyle = '#666';
     ctx.fillText('♪ Music Off (Press M to enable)', 12, CANVAS_HEIGHT - 18);
+  }
+  
+  // Show temporary notifications
+  if (state.notification.message) {
+    const elapsed = now() - state.notification.startTime;
+    if (elapsed < state.notification.duration) {
+      const alpha = Math.max(0, 1 - (elapsed / state.notification.duration));
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 20px monospace';
+      ctx.fillStyle = '#4a90e2';
+      ctx.textAlign = 'center';
+      ctx.fillText(state.notification.message, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+      ctx.restore();
+    } else {
+      // Clear expired notification
+      state.notification.message = null;
+    }
   }
   // Bomb cooldown overlay
   if (!state.gameOver && state.bombCount > 0 && now()-state.lastBomb < BOMB_COOLDOWN) {
