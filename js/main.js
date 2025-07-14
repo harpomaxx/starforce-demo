@@ -1,4 +1,4 @@
-import { resetGame, state, CANVAS_HEIGHT } from './state.js';
+import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED } from './state.js';
 import { setupInput } from './input.js';
 import { updatePlayer } from './player.js';
 import { updateEnemies } from './enemy.js';
@@ -125,12 +125,79 @@ function gameLoop(ts) {
       star.speed = 0.4 + Math.random() * 0.7;
     }
   }
+  
+  // Move spatial continents (with integrated bases) - all at same speed
+  for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
+    let continent = state.spatialContinents[i];
+    continent.y += CONTINENT_SPEED; // All continents move at exactly the same speed
+    
+    // Remove continents that have moved off screen
+    if (continent.y > CANVAS_HEIGHT + 200) {
+      state.spatialContinents.splice(i, 1);
+      // High chance to create new continent for continuous coverage
+      if (Math.random() < 0.85) {
+        createSpatialContinent();
+      }
+    }
+  }
+  
+  // Ensure continuous continental presence - spawn new continents proactively
+  if (state.spatialContinents.length < 2 && Math.random() < 0.8) {
+    createSpatialContinent();
+  }
+  
+  // Occasionally add extra continents for dense coverage
+  if (state.spatialContinents.length < 3 && Math.random() < 0.3) {
+    createSpatialContinent();
+  }
 
   updatePlayer(dt);
   updateEnemies(dt);
   updateBoss(dt);
   updateBullets(dt);
   updateItems(dt);
+
+  // ---- PLAYER BULLET VS SPATIAL BASES (INTEGRATED IN CONTINENTS) ----
+  for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
+    let continent = state.spatialContinents[i];
+    for (let j = state.bullets.length - 1; j >= 0; j--) {
+      let bullet = state.bullets[j];
+      
+      // Check if bullet is within continent bounds
+      if (bullet.x >= continent.x && bullet.x <= continent.x + continent.width * continent.squareSize &&
+          bullet.y >= continent.y && bullet.y <= continent.y + continent.height * continent.squareSize) {
+        
+        // Calculate which square was hit
+        let col = Math.floor((bullet.x - continent.x) / continent.squareSize);
+        let row = Math.floor((bullet.y - continent.y) / continent.squareSize);
+        
+        // Check if the square exists and is an interactive base (not just continental structure)
+        if (row >= 0 && row < continent.height && col >= 0 && col < continent.width && 
+            continent.bases[row][col] && continent.bases[row][col].active) {
+          // Destroy the base square
+          const baseType = continent.bases[row][col].type;
+          continent.bases[row][col] = false;
+          state.bullets.splice(j, 1);
+          
+          // Different point values for different base types
+          let points = 10;
+          switch (baseType) {
+            case "hub": points = 25; break;      // Command centers worth more
+            case "turret": points = 20; break;   // Defense structures
+            case "research": points = 15; break; // Important facilities
+            case "fuel": points = 15; break;
+            case "sensor": points = 15; break;
+            case "cargo": points = 12; break;
+            default: points = 10; break;         // Standard modules
+          }
+          
+          state.score += points;
+          playSound('hit');
+          break;
+        }
+      }
+    }
+  }
 
   // ---- PLAYER BULLET VS ENEMY ----
   for (let i = state.enemies.length-1; i>=0; i--) {
