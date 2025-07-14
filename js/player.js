@@ -7,7 +7,7 @@ export function updatePlayer(dt) {
   let p = state.player;
   
   // Mobile-optimized movement speed for better responsiveness
-  const moveSpeed = state.performance.isMobile ? PLAYER_SPEED * 1.4 : PLAYER_SPEED;
+  const moveSpeed = state.performance.isMobile ? PLAYER_SPEED * 1.8 : PLAYER_SPEED;
   
   if (state.keys['ArrowLeft']||state.keys['KeyA']) p.x -= moveSpeed;
   if (state.keys['ArrowRight']||state.keys['KeyD']) p.x += moveSpeed;

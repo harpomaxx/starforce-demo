@@ -1,7 +1,25 @@
 let audioCtx = null;
 
+// Browser detection for audio optimizations
+const isFirefoxMobile = navigator.userAgent.includes('Firefox') && 
+                       (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+const isChromeMobile = navigator.userAgent.includes('Chrome') && 
+                      (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Firefox mobile specific: Enhanced audio context stability
+    if (isFirefoxMobile) {
+      audioCtx.onstatechange = () => {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      };
+    }
+  }
+  
   // Resume if suspended
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
@@ -23,6 +41,24 @@ function resumeAudioContextOnGesture() {
 
 export function playSound(type) {
   ensureAudio();
+  
+  // Firefox mobile: Reduce audio nodes for fire sound to prevent context instability
+  if (isFirefoxMobile && type === 'fire') {
+    // Simplified fire sound for Firefox mobile
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.value = 480;
+    g.gain.value = 0.12; // Reduced volume to prevent distortion
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + 0.05); // Shorter duration
+    g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.05);
+    return;
+  }
+  
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   let freq, duration, gain;

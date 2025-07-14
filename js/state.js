@@ -731,8 +731,21 @@ export function updatePerformanceMetrics(currentTime) {
 
 // Check if audio should be limited
 export function shouldLimitAudio() {
-  return state.performance.isMobile && 
-         state.performance.audioCallCount >= state.performance.maxAudioCalls;
+  const isFirefoxMobile = navigator.userAgent.includes('Firefox') && 
+                         (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  const isChromeMobile = navigator.userAgent.includes('Chrome') && 
+                        (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  
+  if (isFirefoxMobile) {
+    // Firefox mobile: More aggressive audio limiting for stability (max 2 per frame)
+    return state.performance.audioCallCount >= 2;
+  } else if (isChromeMobile) {
+    // Chrome mobile: Standard limiting for good audio quality
+    return state.performance.audioCallCount >= state.performance.maxAudioCalls;
+  }
+  
+  // Desktop: No audio limiting
+  return false;
 }
 
 // Increment audio call counter

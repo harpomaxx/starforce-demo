@@ -348,9 +348,17 @@ function setupVirtualJoystick() {
     updateJoystick(clientX, clientY);
   }
   
-  // Throttle touch updates to improve performance while maintaining responsiveness
+  // Browser-specific touch updates for optimal responsiveness
   let lastTouchUpdate = 0;
-  const TOUCH_UPDATE_INTERVAL = 16; // ~60fps max
+  const isFirefoxMobile = navigator.userAgent.includes('Firefox') && 
+                         (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  const isChromeMobile = navigator.userAgent.includes('Chrome') && 
+                        (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  
+  // Browser-optimized touch intervals
+  const TOUCH_UPDATE_INTERVAL = isFirefoxMobile ? 4 :    // Firefox mobile: ~250fps (very responsive)
+                                isChromeMobile ? 16 :    // Chrome mobile: ~60fps (stable)
+                                8;                       // Other: ~120fps (balanced)
   
   function handleEnd() {
     if (!isActive) return;
@@ -368,19 +376,27 @@ function setupVirtualJoystick() {
     state.keys['ArrowDown'] = false;
   }
   
+  // Cache frequently used values to avoid repeated calculations
+  let cachedMaxDistance = 0;
+  let lastCenterUpdate = 0;
+  const CENTER_UPDATE_INTERVAL = 100; // Update center less frequently
+  
   function updateJoystick(clientX, clientY) {
-    // Recalculate center to ensure accuracy
-    getJoystickCenter();
+    // Only recalculate center occasionally for performance
+    const now = performance.now();
+    if (now - lastCenterUpdate > CENTER_UPDATE_INTERVAL) {
+      getJoystickCenter();
+      cachedMaxDistance = joystick.offsetWidth / 2 - 25; // Cache this expensive calculation
+      lastCenterUpdate = now;
+    }
     
     const deltaX = clientX - centerX;
     const deltaY = clientY - centerY;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const maxDistance = joystick.offsetWidth / 2 - 25; // Account for knob size
+    const maxDistance = cachedMaxDistance;
     
-    // Debug only occasionally to avoid spam
-    if (Math.random() < 0.1) {
-      debugLog(`Touch: ${clientX}, ${clientY} | Delta: ${deltaX.toFixed(1)}, ${deltaY.toFixed(1)}`);
-    }
+    // Minimal debug logging to avoid performance impact
+    // debugLog(`Touch: ${clientX}, ${clientY} | Delta: ${deltaX.toFixed(1)}, ${deltaY.toFixed(1)});
     
     // Limit knob movement to joystick area
     const limitedDistance = Math.min(distance, maxDistance);
@@ -393,12 +409,15 @@ function setupVirtualJoystick() {
     knob.style.top = `calc(50% + ${knobY}px)`;
     
     // Update movement keys based on position with mobile-optimized thresholds
-    const deadZone = 4; // Very small dead zone for mobile responsiveness (pixels)
-    const threshold = Math.max(deadZone, maxDistance * 0.06); // 6% of max distance for instant activation
+    const deadZone = 3; // Ultra-small dead zone for maximum mobile responsiveness
+    const threshold = Math.max(deadZone, maxDistance * 0.04); // 4% of max distance for instant activation
     
-    // Only activate if outside dead zone
-    const inDeadZone = Math.abs(knobX) < deadZone && Math.abs(knobY) < deadZone;
+    // Optimized dead zone calculation
+    const absKnobX = Math.abs(knobX);
+    const absKnobY = Math.abs(knobY);
+    const inDeadZone = absKnobX < deadZone && absKnobY < deadZone;
     
+    // Direct boolean assignment for better performance
     state.keys['ArrowLeft'] = !inDeadZone && knobX < -threshold;
     state.keys['ArrowRight'] = !inDeadZone && knobX > threshold;
     state.keys['ArrowUp'] = !inDeadZone && knobY < -threshold;
@@ -447,7 +466,7 @@ function setupVirtualJoystick() {
   document.addEventListener('touchmove', e => {
     if (!isActive || joystickTouchId === null) return;
     
-    // Throttle updates for performance while maintaining responsiveness
+    // Minimal throttling for maximum responsiveness
     const now = performance.now();
     if (now - lastTouchUpdate < TOUCH_UPDATE_INTERVAL) return;
     lastTouchUpdate = now;
