@@ -308,7 +308,7 @@ export function renderGame() {
   ctx.fillStyle = "#666666";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.04.01", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.04.02", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   // Restore screen shake transform

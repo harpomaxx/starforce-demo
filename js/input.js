@@ -348,6 +348,10 @@ function setupVirtualJoystick() {
     updateJoystick(clientX, clientY);
   }
   
+  // Throttle touch updates to improve performance while maintaining responsiveness
+  let lastTouchUpdate = 0;
+  const TOUCH_UPDATE_INTERVAL = 16; // ~60fps max
+  
   function handleEnd() {
     if (!isActive) return;
     isActive = false;
@@ -388,9 +392,9 @@ function setupVirtualJoystick() {
     knob.style.left = `calc(50% + ${knobX}px)`;
     knob.style.top = `calc(50% + ${knobY}px)`;
     
-    // Update movement keys based on position with improved thresholds
-    const deadZone = 8; // Small dead zone in center (pixels)
-    const threshold = Math.max(deadZone, maxDistance * 0.12); // 12% of max distance to activate
+    // Update movement keys based on position with mobile-optimized thresholds
+    const deadZone = 4; // Very small dead zone for mobile responsiveness (pixels)
+    const threshold = Math.max(deadZone, maxDistance * 0.06); // 6% of max distance for instant activation
     
     // Only activate if outside dead zone
     const inDeadZone = Math.abs(knobX) < deadZone && Math.abs(knobY) < deadZone;
@@ -439,9 +443,14 @@ function setupVirtualJoystick() {
   
   debugLog('Joystick event listeners added');
   
-  // Track only the specific touch that started on joystick
+  // Track only the specific touch that started on joystick with throttling
   document.addEventListener('touchmove', e => {
     if (!isActive || joystickTouchId === null) return;
+    
+    // Throttle updates for performance while maintaining responsiveness
+    const now = performance.now();
+    if (now - lastTouchUpdate < TOUCH_UPDATE_INTERVAL) return;
+    lastTouchUpdate = now;
     
     // Find the specific touch that belongs to the joystick
     const joystickTouch = Array.from(e.touches).find(t => t.identifier === joystickTouchId);
