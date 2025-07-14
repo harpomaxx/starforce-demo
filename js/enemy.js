@@ -167,6 +167,10 @@ export function updateEnemies(dt) {
           state.player.y = CANVAS_HEIGHT - 60;
           state.shield = true;
           state.shieldUntil = now() + 1400;
+          // Don't start invincibility yet - wait for user to unpause
+          state.invincible = false;
+          state.invincibleUntil = 0;
+          state._startInvincibilityAfterUnpause = true; // Flag to start invincibility after unpause
           state.respawnPauseUntil = Date.now() + 1000; // Pause for 1 second
           playSound('shield');
           state.enemyBullets = state.enemyBullets.filter(eb => Math.abs(eb.y - state.player.y) > 60);
