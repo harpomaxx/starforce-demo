@@ -284,6 +284,33 @@ export function renderGame() {
     ctx.fillText("Press R or Space to Restart", CANVAS_WIDTH/2, CANVAS_HEIGHT/2+48);
   }
   
+  // FPS Counter and Mobile indicator (always visible on mobile or with ?perf)
+  if (state.performance.isMobile || window.location.search.includes('perf')) {
+    ctx.save();
+    ctx.fillStyle = state.performance.isMobile ? "#ffff00" : "#00ff00";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "left";
+    
+    const avgFps = state.performance.fpsHistory.length > 0 ? 
+      Math.round(state.performance.fpsHistory.reduce((a, b) => a + b, 0) / state.performance.fpsHistory.length) : 0;
+    
+    ctx.fillText(`FPS: ${state.performance.currentFps} (${avgFps})`, 5, CANVAS_HEIGHT - 25);
+    
+    if (state.performance.isMobile) {
+      ctx.fillText("MOBILE", 5, CANVAS_HEIGHT - 10);
+    }
+    
+    ctx.restore();
+  }
+  
+  // Version number
+  ctx.save();
+  ctx.fillStyle = "#666666";
+  ctx.font = "10px monospace";
+  ctx.textAlign = "right";
+  ctx.fillText("v1.04.01", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.restore();
+  
   // Restore screen shake transform
   ctx.restore();
 }

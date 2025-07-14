@@ -43,7 +43,18 @@ export const state = {
   _startInvincibilityAfterUnpause: false,
   screenShake: null,
   enemiesKilled: 0,
-  nextBossAt: 10000
+  nextBossAt: 10000,
+  
+  // Performance monitoring
+  performance: {
+    isMobile: false,
+    currentFps: 0,
+    frameCount: 0,
+    lastFrameTime: 0,
+    fpsHistory: [],
+    audioCallCount: 0,
+    maxAudioCalls: 10 // Mobile limit
+  }
 };
 
 export function resetGame() {
@@ -681,6 +692,52 @@ function createContinentShape(continent) {
       }
     }
   }
+}
+
+// Mobile device detection
+export function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) || 
+         'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+// Initialize performance monitoring
+export function initializePerformance() {
+  state.performance.isMobile = isMobileDevice();
+  state.performance.lastFrameTime = performance.now();
+  state.performance.maxAudioCalls = state.performance.isMobile ? 5 : 10;
+  
+  console.log(`Performance initialized - Mobile: ${state.performance.isMobile}`);
+}
+
+// Update performance metrics
+export function updatePerformanceMetrics(currentTime) {
+  const deltaTime = currentTime - state.performance.lastFrameTime;
+  state.performance.lastFrameTime = currentTime;
+  
+  if (deltaTime > 0) {
+    state.performance.currentFps = Math.round(1000 / deltaTime);
+    state.performance.frameCount++;
+    
+    // Keep history of last 30 frames for averaging
+    state.performance.fpsHistory.push(state.performance.currentFps);
+    if (state.performance.fpsHistory.length > 30) {
+      state.performance.fpsHistory.shift();
+    }
+  }
+  
+  // Reset audio counter each frame
+  state.performance.audioCallCount = 0;
+}
+
+// Check if audio should be limited
+export function shouldLimitAudio() {
+  return state.performance.isMobile && 
+         state.performance.audioCallCount >= state.performance.maxAudioCalls;
+}
+
+// Increment audio call counter
+export function incrementAudioCalls() {
+  state.performance.audioCallCount++;
 }
 
 // Export the creation function and sprite data for use in other modules

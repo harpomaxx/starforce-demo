@@ -1,4 +1,4 @@
-import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED } from './state.js';
+import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED, initializePerformance, updatePerformanceMetrics, shouldLimitAudio, incrementAudioCalls } from './state.js';
 import { setupInput } from './input.js';
 import { updatePlayer } from './player.js';
 import { updateEnemies } from './enemy.js';
@@ -9,7 +9,16 @@ import { renderGame } from './render.js';
 import { now, rectsCollide } from './utils.js';
 import { playSound } from './audio.js';
 
+// Performance optimized audio wrapper
+function playLimitedSound(soundType) {
+  if (!shouldLimitAudio()) {
+    incrementAudioCalls();
+    playSound(soundType);
+  }
+}
+
 setupInput();
+initializePerformance();
 resetGame();
 
 let lastTime = 0;
@@ -31,11 +40,16 @@ function gameLoop(ts) {
   let dt = ts - lastTime;
   lastTime = ts;
   
-  // Debug: Log every 60 frames (about once per second)
+  // Update performance metrics
+  updatePerformanceMetrics(ts);
+  
+  // Debug: Log every 60 frames (about once per second) with FPS
   if (!window.frameCount) window.frameCount = 0;
   window.frameCount++;
   if (window.frameCount % 60 === 0) {
-    console.log(`Game loop running: frame ${window.frameCount}, paused: ${state.paused}, gameOver: ${state.gameOver}, FORCE_UNPAUSE: ${window.FORCE_UNPAUSE}`);
+    const avgFps = state.performance.fpsHistory.length > 0 ? 
+      Math.round(state.performance.fpsHistory.reduce((a, b) => a + b, 0) / state.performance.fpsHistory.length) : 0;
+    console.log(`Game loop: frame ${window.frameCount}, FPS: ${state.performance.currentFps} (avg: ${avgFps}), Mobile: ${state.performance.isMobile}`);
   }
   
   // Debug: Log first few calls after unpause
@@ -157,21 +171,35 @@ function gameLoop(ts) {
   updateBullets(dt);
   updateItems(dt);
 
-  // ---- PLAYER BULLET VS SPATIAL BASES (INTEGRATED IN CONTINENTS) ----
-  for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
-    let continent = state.spatialContinents[i];
-    for (let j = state.bullets.length - 1; j >= 0; j--) {
-      let bullet = state.bullets[j];
+  // ---- PLAYER BULLET VS SPATIAL BASES (OPTIMIZED) ----
+  // Use collision frequency reduction for mobile performance
+  const shouldCheckContinentCollisions = !state.performance.isMobile || 
+                                        (state.performance.frameCount % 2 === 0);
+  
+  if (shouldCheckContinentCollisions) {
+    for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
+      let continent = state.spatialContinents[i];
       
-      // Check if bullet is within continent bounds
-      if (bullet.x >= continent.x && bullet.x <= continent.x + continent.width * continent.squareSize &&
-          bullet.y >= continent.y && bullet.y <= continent.y + continent.height * continent.squareSize) {
+      // Early bounds check - skip continent if no bullets could possibly hit it
+      const continentLeft = continent.x;
+      const continentRight = continent.x + continent.width * continent.squareSize;
+      const continentTop = continent.y;
+      const continentBottom = continent.y + continent.height * continent.squareSize;
+      
+      for (let j = state.bullets.length - 1; j >= 0; j--) {
+        let bullet = state.bullets[j];
+        
+        // Quick bounds check first (much faster than detailed collision)
+        if (bullet.x < continentLeft || bullet.x > continentRight ||
+            bullet.y < continentTop || bullet.y > continentBottom) {
+          continue;
+        }
         
         // Calculate which square was hit
         let col = Math.floor((bullet.x - continent.x) / continent.squareSize);
         let row = Math.floor((bullet.y - continent.y) / continent.squareSize);
         
-        // Check if the square exists and is an interactive base (not just continental structure)
+        // Check if the square exists and is an interactive base
         if (row >= 0 && row < continent.height && col >= 0 && col < continent.width && 
             continent.bases[row][col] && continent.bases[row][col].active) {
           // Destroy the base square
@@ -182,35 +210,40 @@ function gameLoop(ts) {
           // Different point values for different base types
           let points = 10;
           switch (baseType) {
-            case "hub": points = 25; break;      // Command centers worth more
-            case "turret": points = 20; break;   // Defense structures
-            case "research": points = 15; break; // Important facilities
+            case "hub": points = 25; break;
+            case "turret": points = 20; break;
+            case "research": points = 15; break;
             case "fuel": points = 15; break;
             case "sensor": points = 15; break;
             case "cargo": points = 12; break;
-            default: points = 10; break;         // Standard modules
+            default: points = 10; break;
           }
           
           state.score += points;
-          playSound('hit');
+          playLimitedSound('hit');
           break;
         }
       }
     }
   }
 
-  // ---- PLAYER BULLET VS ENEMY ----
+  // ---- PLAYER BULLET VS ENEMY (OPTIMIZED) ----
   for (let i = state.enemies.length-1; i>=0; i--) {
     let e = state.enemies[i];
     for (let j = state.bullets.length-1; j>=0; j--) {
       let b = state.bullets[j];
-      if (b.x > e.x-e.w/2 && b.x < e.x+e.w/2 && b.y > e.y-e.h/2 && b.y < e.y+e.h/2) {
+      
+      // Quick distance check first (faster than bounds check)
+      const dx = Math.abs(b.x - e.x);
+      const dy = Math.abs(b.y - e.y);
+      if (dx < e.w/2 && dy < e.h/2) {
         state.enemies.splice(i,1);
         state.bullets.splice(j,1);
         state.score += 100;
-        state.enemiesKilled++; // Track enemy kills
-        playSound('hit');
-        // Drop items (~5% total chance - approximately 1 item every 20 seconds)
+        state.enemiesKilled++;
+        playLimitedSound('hit');
+        
+        // Drop items (~5% total chance)
         let rand = Math.random();
         if (rand < 0.020) {
           state.items.push({x: e.x, y: e.y, r: 11, vy: 2.1, type: 'triple'});
@@ -234,10 +267,10 @@ function gameLoop(ts) {
           b.y > state.boss.y-state.boss.h/2 && b.y < state.boss.y+state.boss.h/2) {
         state.bullets.splice(j,1);
         state.boss.hp -= 1;
-        playSound('hit');
+        playLimitedSound('hit');
         if (state.boss.hp <= 0) {
           state.score += 1500;
-          playSound('bomb');
+          playLimitedSound('bomb');
           for (let i=0;i<5;i++) {
             state.items.push({
               x: state.boss.x + (Math.random()-0.5)*state.boss.w*0.7,
@@ -270,20 +303,20 @@ function gameLoop(ts) {
         if (state.shieldHits <= 0) {
           state.shield = false;
           state.shieldFlash = 12;
-          playSound('shield_break');
+          playLimitedSound('shield_break');
         } else {
-          playSound('shield');
+          playLimitedSound('shield');
         }
         state.enemyBullets.splice(i,1);
         break;
       } else {
         state.lives--;
-        playSound('explosion'); // Play explosion sound
+        playLimitedSound('explosion'); // Play explosion sound
         if (state.lives <= 0) {
           state.gameOver = true;
           const infoElem = document.getElementById('info');
           if (infoElem) infoElem.innerHTML = `<b>Game Over!</b> Score: ${state.score} <br>Press <b>R</b> or <b>Space</b> to Restart`;
-          playSound('over');
+          playLimitedSound('over');
           break;
         } else {
           state.player.x = 200;
@@ -295,7 +328,7 @@ function gameLoop(ts) {
           state.invincibleUntil = 0;
           state._startInvincibilityAfterUnpause = true; // Flag to start invincibility after unpause
           state.respawnPauseUntil = Date.now() + 1000; // Pause for 1 second
-          playSound('shield');
+          playLimitedSound('shield');
           state.enemyBullets = state.enemyBullets.filter(eb => Math.abs(eb.y - state.player.y) > 60);
           break;
         }
@@ -312,9 +345,9 @@ function gameLoop(ts) {
       if (state.shieldHits <= 0) {
         state.shield = false;
         state.shieldFlash = 12;
-        playSound('shield_break');
+        playLimitedSound('shield_break');
       } else {
-        playSound('shield');
+        playLimitedSound('shield');
       }
     } else {
       state.lives--;
@@ -323,7 +356,7 @@ function gameLoop(ts) {
         state.gameOver = true;
         const infoElem = document.getElementById('info');
         if (infoElem) infoElem.innerHTML = `<b>Game Over!</b> Score: ${state.score} <br>Press <b>R</b> or <b>Space</b> to Restart`;
-        playSound('over');
+        playLimitedSound('over');
       } else {
         state.player.x = 200;
         state.player.y = 540;
@@ -334,7 +367,7 @@ function gameLoop(ts) {
         state.invincibleUntil = 0;
         state._startInvincibilityAfterUnpause = true; // Flag to start invincibility after unpause
         state.respawnPauseUntil = Date.now() + 1000; // Pause for 1 second
-        playSound('shield');
+        playLimitedSound('shield');
         state.enemyBullets = state.enemyBullets.filter(eb => Math.abs(eb.y - state.player.y) > 60);
       }
     }
