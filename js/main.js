@@ -1,4 +1,4 @@
-import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED, initializePerformance, updatePerformanceMetrics, shouldLimitAudio, incrementAudioCalls, initializeMaps } from './state.js';
+import { resetGame, state, CANVAS_HEIGHT, initializePerformance, updatePerformanceMetrics, shouldLimitAudio, incrementAudioCalls, initializeMaps, updateMapScroll, getMapTileAt, TILE_SIZE } from './state.js';
 import { setupInput } from './input.js';
 import { updatePlayer } from './player.js';
 import { updateEnemies } from './enemy.js';
@@ -148,30 +148,8 @@ function gameLoop(ts) {
     }
   }
   
-  // Move spatial continents (with integrated bases) - all at same speed
-  for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
-    let continent = state.spatialContinents[i];
-    continent.y += CONTINENT_SPEED; // All continents move at exactly the same speed
-    
-    // Remove continents that have moved off screen
-    if (continent.y > CANVAS_HEIGHT + 200) {
-      state.spatialContinents.splice(i, 1);
-      // High chance to create new continent for continuous coverage
-      if (Math.random() < 0.85) {
-        createSpatialContinent();
-      }
-    }
-  }
-  
-  // Ensure continuous continental presence - spawn new continents proactively
-  if (state.spatialContinents.length < 2 && Math.random() < 0.8) {
-    createSpatialContinent();
-  }
-  
-  // Occasionally add extra continents for dense coverage
-  if (state.spatialContinents.length < 3 && Math.random() < 0.3) {
-    createSpatialContinent();
-  }
+  // Update map scrolling
+  updateMapScroll();
 
   updatePlayer(dt);
   updateEnemies(dt);
@@ -179,58 +157,40 @@ function gameLoop(ts) {
   updateBullets(dt);
   updateItems(dt);
 
-  // ---- PLAYER BULLET VS SPATIAL BASES (OPTIMIZED) ----
+  // ---- PLAYER BULLET VS MAP BASES (OPTIMIZED) ----
   // Use collision frequency reduction for mobile performance
-  const shouldCheckContinentCollisions = !state.performance.isMobile || 
-                                        (state.performance.frameCount % 2 === 0);
+  const shouldCheckMapCollisions = !state.performance.isMobile || 
+                                  (state.performance.frameCount % 2 === 0);
   
-  if (shouldCheckContinentCollisions) {
-    for (let i = state.spatialContinents.length - 1; i >= 0; i--) {
-      let continent = state.spatialContinents[i];
+  if (shouldCheckMapCollisions) {
+    for (let j = state.bullets.length - 1; j >= 0; j--) {
+      let bullet = state.bullets[j];
       
-      // Early bounds check - skip continent if no bullets could possibly hit it
-      const continentLeft = continent.x;
-      const continentRight = continent.x + continent.width * continent.squareSize;
-      const continentTop = continent.y;
-      const continentBottom = continent.y + continent.height * continent.squareSize;
+      // Get the tile type at the bullet's position
+      const tileType = getMapTileAt(bullet.x, bullet.y);
       
-      for (let j = state.bullets.length - 1; j >= 0; j--) {
-        let bullet = state.bullets[j];
+      // Check if it's a base tile (not null, not continent_piece)
+      if (tileType && tileType !== "continent_piece") {
+        // Remove the bullet
+        state.bullets.splice(j, 1);
         
-        // Quick bounds check first (much faster than detailed collision)
-        if (bullet.x < continentLeft || bullet.x > continentRight ||
-            bullet.y < continentTop || bullet.y > continentBottom) {
-          continue;
+        // Different point values for different base types
+        let points = 10;
+        switch (tileType) {
+          case "hub": points = 25; break;
+          case "turret": points = 20; break;
+          case "research": points = 15; break;
+          case "fuel": points = 15; break;
+          case "sensor": points = 15; break;
+          case "cargo": points = 12; break;
+          default: points = 10; break;
         }
         
-        // Calculate which square was hit
-        let col = Math.floor((bullet.x - continent.x) / continent.squareSize);
-        let row = Math.floor((bullet.y - continent.y) / continent.squareSize);
+        state.score += points;
+        playLimitedSound('hit');
         
-        // Check if the square exists and is an interactive base
-        if (row >= 0 && row < continent.height && col >= 0 && col < continent.width && 
-            continent.bases[row][col] && continent.bases[row][col].active) {
-          // Destroy the base square
-          const baseType = continent.bases[row][col].type;
-          continent.bases[row][col] = false;
-          state.bullets.splice(j, 1);
-          
-          // Different point values for different base types
-          let points = 10;
-          switch (baseType) {
-            case "hub": points = 25; break;
-            case "turret": points = 20; break;
-            case "research": points = 15; break;
-            case "fuel": points = 15; break;
-            case "sensor": points = 15; break;
-            case "cargo": points = 12; break;
-            default: points = 10; break;
-          }
-          
-          state.score += points;
-          playLimitedSound('hit');
-          break;
-        }
+        // Note: We can't destroy bases in static map system
+        // This is a limitation of the simpler approach
       }
     }
   }

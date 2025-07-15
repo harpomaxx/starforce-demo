@@ -84,3 +84,11 @@ The game includes touch controls with on-screen buttons. Mobile detection and to
 - Boss appears every 3000+ points with scaled difficulty
 - Power-ups drop randomly from destroyed enemies
 - Lives system with temporary invincibility on respawn
+
+## Versioning Guidelines
+
+- Always increase the version after a change. Depending on the impact, you can change the major or minor version number.
+
+## Development Principles
+
+- Always try to avoid major modifications or refactoring in the code. Unless it is specified.

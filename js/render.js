@@ -1,4 +1,4 @@
-import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName } from './state.js';
+import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName, TILE_SIZE, getMapTileAt, getMapScrollOffset } from './state.js';
 import { drawPlayer } from './player.js';
 import { drawEnemies } from './enemy.js';
 import { drawBoss } from './boss.js';
@@ -39,65 +39,79 @@ export function renderGame() {
   }
   ctx.restore();
   
-  // Draw spatial continents with integrated bases
-  for (let continent of state.spatialContinents) {
-    for (let row = 0; row < continent.height; row++) {
-      for (let col = 0; col < continent.width; col++) {
-        const x = continent.x + col * continent.squareSize;
-        const y = continent.y + row * continent.squareSize;
-        
+  // Draw map tiles directly from map data
+  const scrollOffset = getMapScrollOffset();
+  const tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);
+  const tilesPerCol = Math.ceil(CANVAS_HEIGHT / TILE_SIZE) + 1; // +1 for smooth scrolling
+  
+  for (let row = 0; row < tilesPerCol; row++) {
+    for (let col = 0; col < tilesPerRow; col++) {
+      const x = col * TILE_SIZE;
+      const y = row * TILE_SIZE - scrollOffset;
+      
+      // Skip drawing if outside canvas bounds
+      if (x < -TILE_SIZE || x >= CANVAS_WIDTH || 
+          y < -TILE_SIZE || y >= CANVAS_HEIGHT) {
+        continue;
+      }
+      
+      const tileType = getMapTileAt(x, y - scrollOffset);
+      
+      if (tileType === "continent_piece") {
         // Draw continental structure (background)
-        if (continent.squares[row][col]) {
-          ctx.save();
-          ctx.globalAlpha = 0.4;
-          ctx.fillStyle = "#334155"; // Dark blue-gray for continent
-          ctx.fillRect(x, y, continent.squareSize, continent.squareSize);
-          ctx.strokeStyle = "#475569"; // Slightly lighter border
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
-          ctx.restore();
-        }
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#334155"; // Dark blue-gray for continent
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = "#475569"; // Slightly lighter border
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.restore();
+      } else if (tileType && tileType !== "continent_piece") {
+        // Draw continental structure (background) beneath base
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#334155"; // Dark blue-gray for continent
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = "#475569"; // Slightly lighter border
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+        ctx.restore();
         
-        // Draw integrated bases (foreground - interactive) with 16x16 sprites
-        if (continent.bases[row][col] && continent.bases[row][col].active) {
-          const baseInfo = continent.bases[row][col];
-          const baseType = baseInfo.type;
+        // Draw base sprite (foreground - interactive) with 16x16 sprites
+        const spriteData = baseSprites[tileType];
+        if (spriteData && spriteData.sprite) {
+          // Draw 16x16 sprite (each pixel is 1.5x1.5 pixels to fit in 24x24 square)
+          const pixelSize = TILE_SIZE / 16; // 1.5 pixels per sprite pixel
           
-          // Get sprite pattern for this base type
-          const spriteData = baseSprites[baseType];
-          if (spriteData && spriteData.sprite) {
-            // Draw 16x16 sprite (each pixel is 1.5x1.5 pixels to fit in 24x24 square)
-            const pixelSize = continent.squareSize / 16; // 1.5 pixels per sprite pixel
-            
-            for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
-              for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
-                const pixelX = x + spriteCol * pixelSize;
-                const pixelY = y + spriteRow * pixelSize;
-                const color = spriteData.sprite[spriteRow][spriteCol];
-                
-                ctx.save();
-                ctx.fillStyle = color;
-                ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
-                ctx.restore();
-              }
+          for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
+            for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
+              const pixelX = x + spriteCol * pixelSize;
+              const pixelY = y + spriteRow * pixelSize;
+              const color = spriteData.sprite[spriteRow][spriteCol];
+              
+              ctx.save();
+              ctx.fillStyle = color;
+              ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
+              ctx.restore();
             }
-            
-            // Add subtle border for definition around the entire base
-            ctx.save();
-            ctx.strokeStyle = "#ffffff";
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
-            ctx.restore();
-          } else {
-            // Fallback to solid color if no sprite data
-            ctx.save();
-            ctx.fillStyle = "#666";
-            ctx.fillRect(x, y, continent.squareSize, continent.squareSize);
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, continent.squareSize, continent.squareSize);
-            ctx.restore();
           }
+          
+          // Add subtle border for definition around the entire base
+          ctx.save();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.restore();
+        } else {
+          // Fallback to solid color if no sprite data
+          ctx.save();
+          ctx.fillStyle = "#666";
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.restore();
         }
       }
     }
@@ -316,7 +330,7 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.07.00", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.09.09", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   // Restore screen shake transform
