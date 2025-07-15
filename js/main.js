@@ -1,4 +1,4 @@
-import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED, initializePerformance, updatePerformanceMetrics, shouldLimitAudio, incrementAudioCalls } from './state.js';
+import { resetGame, state, CANVAS_HEIGHT, createSpatialContinent, CONTINENT_SPEED, initializePerformance, updatePerformanceMetrics, shouldLimitAudio, incrementAudioCalls, initializeMaps } from './state.js';
 import { setupInput } from './input.js';
 import { updatePlayer } from './player.js';
 import { updateEnemies } from './enemy.js';
@@ -19,7 +19,15 @@ function playLimitedSound(soundType) {
 
 setupInput();
 initializePerformance();
-resetGame();
+
+// Initialize maps before resetting game
+initializeMaps().then(() => {
+  resetGame();
+  console.log('Game initialized with external maps');
+}).catch(error => {
+  console.error('Failed to initialize maps, starting with fallback:', error);
+  resetGame(); // Start anyway with fallback maps
+});
 
 let lastTime = 0;
 function showStartMessage() {

@@ -1,4 +1,4 @@
-import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites } from './state.js';
+import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName } from './state.js';
 import { drawPlayer } from './player.js';
 import { drawEnemies } from './enemy.js';
 import { drawBoss } from './boss.js';
@@ -303,12 +303,20 @@ export function renderGame() {
     ctx.restore();
   }
   
-  // Version number
+  // Map name (bottom-left in yellow)
+  ctx.save();
+  ctx.fillStyle = "#ffff00";
+  ctx.font = "10px monospace";
+  ctx.textAlign = "left";
+  ctx.fillText(`Map: ${getCurrentMapName()}`, 5, CANVAS_HEIGHT - 5);
+  ctx.restore();
+  
+  // Version number (bottom-right in yellow)
   ctx.save();
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.04.05", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.07.00", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   // Restore screen shake transform
