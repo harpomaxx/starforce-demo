@@ -39,7 +39,7 @@ export function renderGame() {
   }
   ctx.restore();
   
-  // Draw map tiles directly from map data
+  // Draw map tiles from viewport buffer
   const scrollOffset = getMapScrollOffset();
   const tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);
   const tilesPerCol = Math.ceil(CANVAS_HEIGHT / TILE_SIZE) + 1; // +1 for smooth scrolling
@@ -55,7 +55,7 @@ export function renderGame() {
         continue;
       }
       
-      const tileType = getMapTileAt(x, y - scrollOffset);
+      const tileType = getMapTileAt(x, y);
       
       if (tileType === "continent_piece") {
         // Draw continental structure (background)
@@ -330,7 +330,7 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.09.09", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.09.12", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   // Restore screen shake transform
