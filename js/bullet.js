@@ -1,17 +1,30 @@
 import { state, BULLET_SPEED, CANVAS_HEIGHT } from './state.js';
 
+// Performance optimized bullet updates
 export function updateBullets(dt) {
-  for (let b of state.bullets) {
+  // Update player bullets in place, removing off-screen ones
+  for (let i = state.bullets.length - 1; i >= 0; i--) {
+    let b = state.bullets[i];
     b.y -= BULLET_SPEED;
     if (b.dx) b.x += b.dx * 2.4;
+    
+    // Remove off-screen bullets in place (more efficient than filter)
+    if (b.y <= -10) {
+      state.bullets.splice(i, 1);
+    }
   }
-  state.bullets = state.bullets.filter(b => b.y > -10);
 
-  for (let eb of state.enemyBullets) {
+  // Update enemy bullets in place
+  for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+    let eb = state.enemyBullets[i];
     if (eb.vx) eb.x += eb.vx;
     eb.y += eb.vy ? eb.vy : eb.vy = 4.4;
+    
+    // Remove off-screen bullets in place
+    if (eb.y >= CANVAS_HEIGHT + 20 || eb.x <= -20 || eb.x >= 420) {
+      state.enemyBullets.splice(i, 1);
+    }
   }
-  state.enemyBullets = state.enemyBullets.filter(eb => eb.y < CANVAS_HEIGHT + 20 && eb.x > -20 && eb.x < 400+20);
 }
 
 export function drawBullets(ctx) {

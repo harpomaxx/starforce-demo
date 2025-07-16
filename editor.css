@@ -1,0 +1,29 @@
+body {
+    font-family: sans-serif;
+    background-color: #333;
+    color: #fff;
+}
+
+#editor-container {
+    display: flex;
+    gap: 20px;
+}
+
+#map-canvas {
+    border: 1px solid #fff;
+    cursor: crosshair;
+}
+
+#tileset-canvas {
+    border: 1px solid #fff;
+    cursor: pointer;
+}
+
+#status-bar {
+    margin-top: 10px;
+    font-family: monospace;
+}
+
+#controls {
+    margin-top: 20px;
+}

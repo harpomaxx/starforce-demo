@@ -5,10 +5,14 @@ import { playSound } from './audio.js';
 export function updatePlayer(dt) {
   if (state.gameOver) return;
   let p = state.player;
-  if (state.keys['ArrowLeft']||state.keys['KeyA']) p.x -= PLAYER_SPEED;
-  if (state.keys['ArrowRight']||state.keys['KeyD']) p.x += PLAYER_SPEED;
-  if (state.keys['ArrowUp']||state.keys['KeyW']) p.y -= PLAYER_SPEED;
-  if (state.keys['ArrowDown']||state.keys['KeyS']) p.y += PLAYER_SPEED;
+  
+  // Mobile-optimized movement speed for better responsiveness
+  const moveSpeed = state.performance.isMobile ? PLAYER_SPEED * 1.8 : PLAYER_SPEED;
+  
+  if (state.keys['ArrowLeft']||state.keys['KeyA']) p.x -= moveSpeed;
+  if (state.keys['ArrowRight']||state.keys['KeyD']) p.x += moveSpeed;
+  if (state.keys['ArrowUp']||state.keys['KeyW']) p.y -= moveSpeed;
+  if (state.keys['ArrowDown']||state.keys['KeyS']) p.y += moveSpeed;
   p.x = clamp(p.x, p.w/2, CANVAS_WIDTH-p.w/2);
   p.y = clamp(p.y, CANVAS_HEIGHT/2, CANVAS_HEIGHT-p.h/2);
 

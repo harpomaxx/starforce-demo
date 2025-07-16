@@ -1,6 +1,14 @@
-import { state, ENEMY_WIDTH, ENEMY_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT, ENEMY_SPAWN_DELAY, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX, BOMB_RADIUS } from './state.js';
+import { state, ENEMY_WIDTH, ENEMY_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT, ENEMY_SPAWN_DELAY, ENEMY_SPEED_MIN, ENEMY_SPEED_MAX, BOMB_RADIUS, shouldLimitAudio, incrementAudioCalls } from './state.js';
 import { playSound } from './audio.js';
 import { now, rectsCollide } from './utils.js';
+
+// Performance optimized audio wrapper
+function playLimitedSound(soundType) {
+  if (!shouldLimitAudio()) {
+    incrementAudioCalls();
+    playSound(soundType);
+  }
+}
 
 // Calculate dynamic spawn delay based on score (gets faster over time)
 function getSpawnDelay() {

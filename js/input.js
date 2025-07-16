@@ -348,6 +348,18 @@ function setupVirtualJoystick() {
     updateJoystick(clientX, clientY);
   }
   
+  // Browser-specific touch updates for optimal responsiveness
+  let lastTouchUpdate = 0;
+  const isFirefoxMobile = navigator.userAgent.includes('Firefox') && 
+                         (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  const isChromeMobile = navigator.userAgent.includes('Chrome') && 
+                        (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('Android'));
+  
+  // Browser-optimized touch intervals
+  const TOUCH_UPDATE_INTERVAL = isFirefoxMobile ? 4 :    // Firefox mobile: ~250fps (very responsive)
+                                isChromeMobile ? 16 :    // Chrome mobile: ~60fps (stable)
+                                8;                       // Other: ~120fps (balanced)
+  
   function handleEnd() {
     if (!isActive) return;
     isActive = false;
@@ -364,19 +376,27 @@ function setupVirtualJoystick() {
     state.keys['ArrowDown'] = false;
   }
   
+  // Cache frequently used values to avoid repeated calculations
+  let cachedMaxDistance = 0;
+  let lastCenterUpdate = 0;
+  const CENTER_UPDATE_INTERVAL = 100; // Update center less frequently
+  
   function updateJoystick(clientX, clientY) {
-    // Recalculate center to ensure accuracy
-    getJoystickCenter();
+    // Only recalculate center occasionally for performance
+    const now = performance.now();
+    if (now - lastCenterUpdate > CENTER_UPDATE_INTERVAL) {
+      getJoystickCenter();
+      cachedMaxDistance = joystick.offsetWidth / 2 - 25; // Cache this expensive calculation
+      lastCenterUpdate = now;
+    }
     
     const deltaX = clientX - centerX;
     const deltaY = clientY - centerY;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const maxDistance = joystick.offsetWidth / 2 - 25; // Account for knob size
+    const maxDistance = cachedMaxDistance;
     
-    // Debug only occasionally to avoid spam
-    if (Math.random() < 0.1) {
-      debugLog(`Touch: ${clientX}, ${clientY} | Delta: ${deltaX.toFixed(1)}, ${deltaY.toFixed(1)}`);
-    }
+    // Minimal debug logging to avoid performance impact
+    // debugLog(`Touch: ${clientX}, ${clientY} | Delta: ${deltaX.toFixed(1)}, ${deltaY.toFixed(1)});
     
     // Limit knob movement to joystick area
     const limitedDistance = Math.min(distance, maxDistance);
@@ -388,13 +408,16 @@ function setupVirtualJoystick() {
     knob.style.left = `calc(50% + ${knobX}px)`;
     knob.style.top = `calc(50% + ${knobY}px)`;
     
-    // Update movement keys based on position with improved thresholds
-    const deadZone = 8; // Small dead zone in center (pixels)
-    const threshold = Math.max(deadZone, maxDistance * 0.12); // 12% of max distance to activate
+    // Update movement keys based on position with mobile-optimized thresholds
+    const deadZone = 3; // Ultra-small dead zone for maximum mobile responsiveness
+    const threshold = Math.max(deadZone, maxDistance * 0.04); // 4% of max distance for instant activation
     
-    // Only activate if outside dead zone
-    const inDeadZone = Math.abs(knobX) < deadZone && Math.abs(knobY) < deadZone;
+    // Optimized dead zone calculation
+    const absKnobX = Math.abs(knobX);
+    const absKnobY = Math.abs(knobY);
+    const inDeadZone = absKnobX < deadZone && absKnobY < deadZone;
     
+    // Direct boolean assignment for better performance
     state.keys['ArrowLeft'] = !inDeadZone && knobX < -threshold;
     state.keys['ArrowRight'] = !inDeadZone && knobX > threshold;
     state.keys['ArrowUp'] = !inDeadZone && knobY < -threshold;
@@ -439,9 +462,14 @@ function setupVirtualJoystick() {
   
   debugLog('Joystick event listeners added');
   
-  // Track only the specific touch that started on joystick
+  // Track only the specific touch that started on joystick with throttling
   document.addEventListener('touchmove', e => {
     if (!isActive || joystickTouchId === null) return;
+    
+    // Minimal throttling for maximum responsiveness
+    const now = performance.now();
+    if (now - lastTouchUpdate < TOUCH_UPDATE_INTERVAL) return;
+    lastTouchUpdate = now;
     
     // Find the specific touch that belongs to the joystick
     const joystickTouch = Array.from(e.touches).find(t => t.identifier === joystickTouchId);
