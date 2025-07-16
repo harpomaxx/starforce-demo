@@ -8,9 +8,6 @@ export const BOMB_RADIUS = 240, BOMB_COOLDOWN = 2500, BOMB_MAX = 2;
 // Direct map scrolling system
 export const TILE_SIZE = 24; // Size of each map tile in pixels
 export const MAP_SCROLL_SPEED = 0.51; // How fast the map scrolls down
-let mapScrollY = 0 ; // Current scroll position in pixels (positive values, 0 = start of map)
-export function getMapScrollY() { return mapScrollY; }
-//let  mapScrollY = -(staticMapData.height - 1) * TILE_SIZE -1
 // mapScrollRow removed - no longer needed with new logic
 
 // New Tile-Based Buffer System
@@ -104,120 +101,6 @@ class TileBuffer {
   }
 }
 
-// Old Viewport Tile Buffer System (keeping for reference, will remove later)
-class ViewportTileBuffer {
-  constructor() {
-    this.tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);   // ~17 tiles
-    this.tilesPerCol = Math.ceil(CANVAS_HEIGHT / TILE_SIZE) + 1; // ~25 tiles + 1 for smooth scrolling
-    
-    // Buffer that represents exactly what's visible on canvas
-    this.visibleTiles = Array(this.tilesPerCol).fill(null)
-                            .map(() => Array(this.tilesPerRow).fill(null));
-    
-    // Transition state
-    this.transitionActive = false;
-    this.nextMapData = null;
-    this.transitionScrollY = 0;
-  }
-  
-  getTileAt(col, row) {
-    if (row >= 0 && row < this.tilesPerCol && col >= 0 && col < this.tilesPerRow) {
-      return this.visibleTiles[row][col];
-    }
-    return null;
-  }
-  
-  setTileAt(col, row, tileType) {
-    if (row >= 0 && row < this.tilesPerCol && col >= 0 && col < this.tilesPerRow) {
-      this.visibleTiles[row][col] = tileType;
-    }
-  }
-  
-  clear() {
-    for (let row = 0; row < this.tilesPerCol; row++) {
-      for (let col = 0; col < this.tilesPerRow; col++) {
-        this.visibleTiles[row][col] = null;
-      }
-    }
-  }
-  
-  // Load a section of map data into the buffer
-  loadMapSection(mapData, bufferStartRow, mapStartRow, numRows) {
-    if (!mapData || !mapData.tiles) return;
-    
-    for (let row = 0; row < numRows; row++) {
-      const bufferRow = bufferStartRow + row;
-      const sourceRow = mapStartRow + row;
-      
-      if (bufferRow >= this.tilesPerCol || sourceRow >= mapData.height || sourceRow < 0) {
-        continue;
-      }
-      
-      // Additional safety check: ensure the row exists in the tiles array
-      if (!mapData.tiles[sourceRow]) {
-        continue;
-      }
-      
-      for (let col = 0; col < this.tilesPerRow && col < mapData.width; col++) {
-        const tileType = mapData.tiles[sourceRow][col];
-        this.setTileAt(col, bufferRow, tileType);
-      }
-    }
-  }
-  
-  // Update buffer contents based on current scroll position
-  updateBuffer(currentMapData, scrollY, scrollOffset) {
-    if (!currentMapData) return;
-    
-    //this.clear();
-    
-    // Calculate which rows from the current map should be visible
-    const currentMapPixelY = scrollY + scrollOffset;
-    const startRowInMap = Math.floor(currentMapPixelY / TILE_SIZE);
-    const mapRowsToShow = Math.min(this.tilesPerCol, currentMapData.height - startRowInMap);
-    
-    if (!this.transitionActive) {
-      // Normal case: just show current map
-      if (startRowInMap >= 0 && mapRowsToShow > 0) {
-        const actualMapStartRow = (currentMapData.height - 1) - startRowInMap - (mapRowsToShow - 1);
-        this.loadMapSection(currentMapData, 0, Math.max(0, actualMapStartRow), mapRowsToShow);
-      }
-    } else {
-      // Transition case: mix current and next map
-      // Calculate transition progress relative to when transition started
-      const transitionStartY = this.transitionScrollY;
-      const transitionProgress = Math.max(0, (transitionStartY - scrollY) / TILE_SIZE);
-      const nextMapRows = Math.min(this.tilesPerCol, Math.floor(transitionProgress));
-      const currentMapRows = this.tilesPerCol - nextMapRows;
-      
-      // Load current map portion (bottom part of buffer)
-      if (currentMapRows > 0 && startRowInMap >= 0) {
-        const actualMapStartRow = Math.max(0, (currentMapData.height - 1) - startRowInMap - (currentMapRows - 1));
-        this.loadMapSection(currentMapData, nextMapRows, actualMapStartRow, currentMapRows);
-      }
-      
-      // Load next map portion (top part of buffer)
-      if (nextMapRows > 0 && this.nextMapData) {
-        const nextMapStartRow = Math.max(0, this.nextMapData.height - nextMapRows);
-        this.loadMapSection(this.nextMapData, 0, nextMapStartRow, nextMapRows);
-      }
-    }
-  }
-  
-  // Start a transition to the next map
-  startTransition(nextMapData) {
-    this.transitionActive = true;
-    this.nextMapData = nextMapData;
-    this.transitionScrollY = mapScrollY;
-  }
-  
-  // Complete the transition
-  completeTransition() {
-    this.transitionActive = false;
-    this.nextMapData = null;
-    this.transitionScrollY = 0;
-  }
-}
 
 // Map loading system
 let availableMaps = {};
@@ -248,7 +131,7 @@ async function loadMap(mapName) {
 
 // Load all available maps
 async function loadAllMaps() {
-  const mapNames = ["asteroids", "nebula","bigbase"];
+  const mapNames = mapCyclingOrder;
   
   try {
     await Promise.all(mapNames.map(mapName => loadMap(mapName)));
@@ -282,19 +165,11 @@ export function initializeTileBuffer() {
   return tileBuffer;
 }
 
-// Get tile buffer (for rendering)
-export function getTileBuffer() {
-  return tileBuffer;
-}
 
-// Legacy function for compatibility
-export function getViewportBuffer() {
-  return tileBuffer;
-}
 
 
 // Map cycling order for automatic progression
-const mapCyclingOrder = ["asteroids", "nebula","bigbase"];
+const mapCyclingOrder = ["deepspace", "asteroids","deepspace", "nebula","deepspace","bigbase"];
 let currentMapIndex = 0;
 
 // Simplified map scrolling functions
@@ -318,16 +193,11 @@ export function updateMapScroll() {
   
   // Check if we've switched to a new map
   if (tileBuffer.currentMap !== staticMapData) {
-    // Find which map we're now on
-    for (let i = 0; i < mapCyclingOrder.length; i++) {
-      if (availableMaps[mapCyclingOrder[i]] === tileBuffer.currentMap) {
-        currentMapIndex = i;
-        currentMapName = mapCyclingOrder[i];
-        staticMapData = tileBuffer.currentMap;
-        console.log(`Switched to map: ${currentMapName}`);
-        break;
-      }
-    }
+    // Move to the next map in sequence
+    currentMapIndex = (currentMapIndex + 1) % mapCyclingOrder.length;
+    currentMapName = mapCyclingOrder[currentMapIndex];
+    staticMapData = tileBuffer.currentMap;
+    console.log(`Switched to map: ${currentMapName} (index: ${currentMapIndex})`);
   }
 }
 
@@ -355,9 +225,6 @@ export function resetMapScroll() {
     if (tileBuffer) {
       tileBuffer.setMap(staticMapData);
     }
-    
-    // Reset scroll position
-    mapScrollY = 0;
   }
 }
 
