@@ -61,6 +61,11 @@ class ViewportTileBuffer {
         continue;
       }
       
+      // Additional safety check: ensure the row exists in the tiles array
+      if (!mapData.tiles[sourceRow]) {
+        continue;
+      }
+      
       for (let col = 0; col < this.tilesPerRow && col < mapData.width; col++) {
         const tileType = mapData.tiles[sourceRow][col];
         this.setTileAt(col, bufferRow, tileType);
@@ -87,8 +92,10 @@ class ViewportTileBuffer {
       }
     } else {
       // Transition case: mix current and next map
-      const transitionProgress = Math.max(0, -scrollY / TILE_SIZE);
-      const nextMapRows = Math.floor(transitionProgress);
+      // Calculate transition progress relative to when transition started
+      const transitionStartY = this.transitionScrollY;
+      const transitionProgress = Math.max(0, (transitionStartY - scrollY) / TILE_SIZE);
+      const nextMapRows = Math.min(this.tilesPerCol, Math.floor(transitionProgress));
       const currentMapRows = this.tilesPerCol - nextMapRows;
       
       // Load current map portion (bottom part of buffer)
@@ -230,6 +237,7 @@ export function updateMapScroll() {
       
       // Continue scrolling from the top of the new map
       // Adjust mapScrollY to represent position in the new map
+      //mapScrollY = mapScrollY + (staticMapData.height * TILE_SIZE);
       mapScrollY = mapScrollY + (staticMapData.height * TILE_SIZE);
       
       // Complete the transition
