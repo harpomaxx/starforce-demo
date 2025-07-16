@@ -9,10 +9,101 @@ export const BOMB_RADIUS = 240, BOMB_COOLDOWN = 2500, BOMB_MAX = 2;
 export const TILE_SIZE = 24; // Size of each map tile in pixels
 export const MAP_SCROLL_SPEED = 0.51; // How fast the map scrolls down
 let mapScrollY = 0 ; // Current scroll position in pixels (positive values, 0 = start of map)
+export function getMapScrollY() { return mapScrollY; }
 //let  mapScrollY = -(staticMapData.height - 1) * TILE_SIZE -1
 // mapScrollRow removed - no longer needed with new logic
 
-// Viewport Tile Buffer System
+// New Tile-Based Buffer System
+class TileBuffer {
+  constructor(height = 32) {
+    this.height = height;
+    this.tiles = Array(height).fill(null);
+    this.currentMap = null;
+    this.currentMapRow = 0;
+    this.nextMap = null;
+    this.pixelOffset = 0; // For smooth scrolling
+  }
+  
+  setMap(mapData) {
+    this.currentMap = mapData;
+    this.currentMapRow = mapData.height - 1; // Start from the end of the map
+    this.fillInitialBuffer();
+  }
+  
+  setNextMap(mapData) {
+    this.nextMap = mapData;
+  }
+  
+  fillInitialBuffer() {
+    if (!this.currentMap) return;
+    
+    // Fill buffer from top to bottom with map rows in reverse order
+    for (let i = 0; i < this.height; i++) {
+      const mapRow = this.currentMapRow - i;
+      if (mapRow >= 0) {
+        this.tiles[i] = this.getMapRowTiles(this.currentMap, mapRow);
+      } else {
+        this.tiles[i] = null;
+      }
+    }
+    this.currentMapRow -= this.height;
+  }
+  
+  getMapRowTiles(mapData, row) {
+    if (!mapData || !mapData.tiles || row < 0 || row >= mapData.height) {
+      return null;
+    }
+    return mapData.tiles[row];
+  }
+  
+  shiftAndAdd() {
+    if (!this.currentMap) return;
+    
+    // Shift everything up (towards index 0)
+    for (let i = 0; i < this.height - 1; i++) {
+      this.tiles[i] = this.tiles[i + 1];
+    }
+    
+    // Add new row at bottom
+    let newRow = null;
+    if (this.currentMapRow >= 0) {
+      newRow = this.getMapRowTiles(this.currentMap, this.currentMapRow);
+      this.currentMapRow--;
+    } else if (this.nextMap) {
+      // Switch to next map
+      this.currentMap = this.nextMap;
+      this.nextMap = null;
+      this.currentMapRow = this.currentMap.height - 1; // Start from end of new map
+      newRow = this.getMapRowTiles(this.currentMap, this.currentMapRow);
+      this.currentMapRow--;
+    }
+    
+    this.tiles[this.height - 1] = newRow;
+  }
+  
+  getTileAt(col, row) {
+    if (row < 0 || row >= this.height) return null;
+    const rowData = this.tiles[row];
+    if (!rowData || col < 0 || col >= rowData.length) return null;
+    return rowData[col];
+  }
+  
+  update(scrollSpeed) {
+    this.pixelOffset += scrollSpeed;
+    
+    // When we've scrolled a full tile, shift the buffer
+    while (this.pixelOffset >= TILE_SIZE) {
+      this.shiftAndAdd();
+      this.pixelOffset -= TILE_SIZE;
+    }
+  }
+  
+  getPixelOffset() {
+    return this.pixelOffset;
+  }
+}
+
+// Old Viewport Tile Buffer System (keeping for reference, will remove later)
 class ViewportTileBuffer {
   constructor() {
     this.tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);   // ~17 tiles
@@ -77,7 +168,7 @@ class ViewportTileBuffer {
   updateBuffer(currentMapData, scrollY, scrollOffset) {
     if (!currentMapData) return;
     
-    this.clear();
+    //this.clear();
     
     // Calculate which rows from the current map should be visible
     const currentMapPixelY = scrollY + scrollOffset;
@@ -181,18 +272,23 @@ async function loadAllMaps() {
 let currentMapName = "asteroids";
 let staticMapData = null; // Will be set after maps are loaded
 
-// Initialize the viewport buffer
-let viewportBuffer = null;
+// Initialize the tile buffer
+let tileBuffer = null;
 
-// Initialize viewport buffer
-export function initializeViewportBuffer() {
-  viewportBuffer = new ViewportTileBuffer();
-  return viewportBuffer;
+// Initialize tile buffer
+export function initializeTileBuffer() {
+  tileBuffer = new TileBuffer(32);
+  return tileBuffer;
 }
 
-// Get viewport buffer (for rendering)
+// Get tile buffer (for rendering)
+export function getTileBuffer() {
+  return tileBuffer;
+}
+
+// Legacy function for compatibility
 export function getViewportBuffer() {
-  return viewportBuffer;
+  return tileBuffer;
 }
 
 
@@ -200,71 +296,52 @@ export function getViewportBuffer() {
 const mapCyclingOrder = ["asteroids", "nebula","bigbase"];
 let currentMapIndex = 0;
 
-// Direct map scrolling functions
+// Simplified map scrolling functions
 export function updateMapScroll() {
-  if (!staticMapData || !viewportBuffer) return;
+  if (!staticMapData || !tileBuffer) return;
   
-  // Update scroll position (increase to move through map forward)
-  mapScrollY -= MAP_SCROLL_SPEED;
-  console.log(`ScrollY: ${mapScrollY}`);
-  
-  // Check if we're approaching the end of current map (start transition)
-  const mapEndThreshold = -(staticMapData.height * TILE_SIZE) + CANVAS_HEIGHT;
-  if (mapScrollY <= mapEndThreshold && !viewportBuffer.transitionActive) {
-    // Prepare next map for transition
+  // Check if we need to set up next map for transition
+  if (tileBuffer.currentMapRow <= 10 && !tileBuffer.nextMap) {
+    // Approaching end of current map, prepare next map
     const nextMapIndex = (currentMapIndex + 1) % mapCyclingOrder.length;
     const nextMapName = mapCyclingOrder[nextMapIndex];
     
     if (availableMaps[nextMapName]) {
-      console.log(`Starting transition to map: ${nextMapName} at scrollY: ${mapScrollY}`);
-      viewportBuffer.startTransition(availableMaps[nextMapName]);
+      console.log(`Preparing transition to map: ${nextMapName}`);
+      tileBuffer.setNextMap(availableMaps[nextMapName]);
     }
   }
   
-  // Check if we need to complete the transition
-  // Wait until we've scrolled past the current map completely and started showing the next map
-  const currentMapCompleteThreshold = -(staticMapData.height * TILE_SIZE);
+  // Update tile buffer with scroll speed
+  tileBuffer.update(MAP_SCROLL_SPEED);
   
-  if (viewportBuffer.transitionActive && mapScrollY <= currentMapCompleteThreshold) {
-    // The current map is now completely off-screen, switch to next map
-    const nextMapIndex = (currentMapIndex + 1) % mapCyclingOrder.length;
-    const nextMapName = mapCyclingOrder[nextMapIndex];
-    
-    if (availableMaps[nextMapName]) {
-      currentMapIndex = nextMapIndex;
-      currentMapName = nextMapName;
-      staticMapData = availableMaps[nextMapName];
-      
-      // Continue scrolling from the top of the new map
-      // Adjust mapScrollY to represent position in the new map
-      //mapScrollY = mapScrollY + (staticMapData.height * TILE_SIZE);
-      mapScrollY = mapScrollY + (staticMapData.height * TILE_SIZE);
-      
-      // Complete the transition
-      viewportBuffer.completeTransition();
-      
-      console.log(`Completed transition to map: ${nextMapName} at scrollY: ${mapScrollY}`);
+  // Check if we've switched to a new map
+  if (tileBuffer.currentMap !== staticMapData) {
+    // Find which map we're now on
+    for (let i = 0; i < mapCyclingOrder.length; i++) {
+      if (availableMaps[mapCyclingOrder[i]] === tileBuffer.currentMap) {
+        currentMapIndex = i;
+        currentMapName = mapCyclingOrder[i];
+        staticMapData = tileBuffer.currentMap;
+        console.log(`Switched to map: ${currentMapName}`);
+        break;
+      }
     }
   }
-  
-  // Update viewport buffer with current state
-  const scrollOffset = getMapScrollOffset();
-  viewportBuffer.updateBuffer(staticMapData, mapScrollY, scrollOffset);
 }
 
 export function getMapTileAt(x, y) {
-  if (!viewportBuffer) return null;
+  if (!tileBuffer) return null;
   
   const col = Math.floor(x / TILE_SIZE);
   const row = Math.floor(y / TILE_SIZE);
   
-  return viewportBuffer.getTileAt(col, row);
+  return tileBuffer.getTileAt(col, row);
 }
 
 export function getMapScrollOffset() {
-  return mapScrollY % TILE_SIZE ; // Adjust this based on how you want to use the scroll offset
-  //return Math.abs(mapScrollY) % TILE_SIZE;
-  //return (TILE_SIZE - (mapScrollY % TILE_SIZE)) % TILE_SIZE;     
+  if (!tileBuffer) return 0;
+  return tileBuffer.getPixelOffset();
 }
 
 export function resetMapScroll() {
@@ -272,7 +349,13 @@ export function resetMapScroll() {
   if (availableMaps[mapCyclingOrder[0]]) {
     currentMapName = mapCyclingOrder[0];
     staticMapData = availableMaps[mapCyclingOrder[0]];
-    // Start from the beginning of the map (row 31 first)
+    
+    // Reset tile buffer with the first map
+    if (tileBuffer) {
+      tileBuffer.setMap(staticMapData);
+    }
+    
+    // Reset scroll position
     mapScrollY = 0;
   }
 }
@@ -320,9 +403,9 @@ export async function initializeMaps() {
     // Reset map scroll position to start from end of map
     resetMapScroll();
     
-    // Initialize viewport buffer
-    if (!viewportBuffer) {
-      initializeViewportBuffer();
+    // Initialize tile buffer
+    if (!tileBuffer) {
+      initializeTileBuffer();
     }
   }
   return mapsLoaded;

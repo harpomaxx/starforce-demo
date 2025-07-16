@@ -1,4 +1,4 @@
-import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName, TILE_SIZE, getMapTileAt, getMapScrollOffset } from './state.js';
+import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName, TILE_SIZE, getMapTileAt, getMapScrollOffset, getViewportBuffer, getTileBuffer, getMapScrollY } from './state.js';
 import { drawPlayer } from './player.js';
 import { drawEnemies } from './enemy.js';
 import { drawBoss } from './boss.js';
@@ -39,7 +39,7 @@ export function renderGame() {
   }
   ctx.restore();
   
-  // Draw map tiles from viewport buffer
+  // Draw map tiles from tile buffer
   const scrollOffset = getMapScrollOffset();
   const tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);
   const tilesPerCol = Math.ceil(CANVAS_HEIGHT / TILE_SIZE) + 1; // +1 for smooth scrolling
@@ -55,6 +55,7 @@ export function renderGame() {
         continue;
       }
       
+      // Get tile directly from buffer using buffer coordinates
       const tileType = getMapTileAt(x, y);
       
       if (tileType === "continent_piece") {
@@ -330,8 +331,52 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.09.12", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.09.13", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
+  
+  // DEBUG: Tile buffer state information
+  const tileBuffer = getTileBuffer();
+  if (tileBuffer) {
+    ctx.save();
+    ctx.font = "12px monospace";
+    ctx.textAlign = "left";
+    
+    // Show tile buffer state
+    if (tileBuffer.nextMap) {
+      ctx.fillStyle = "#ff0000"; // Red for transition prepared
+      ctx.fillText("TRANSITION READY", 10, 50);
+      
+      // Show transition details
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(`Current Map Row: ${tileBuffer.currentMapRow}`, 10, 70);
+      
+      if (tileBuffer.currentMap) {
+        const remainingRows = tileBuffer.currentMapRow + 1; // +1 because we include row 0
+        ctx.fillText(`Remaining Rows: ${remainingRows}`, 10, 90);
+      }
+      
+      // Show next map info
+      if (tileBuffer.nextMap) {
+        ctx.fillText(`Next Map: ${tileBuffer.nextMap.width}x${tileBuffer.nextMap.height}`, 10, 110);
+      }
+    } else {
+      ctx.fillStyle = "#00ff00"; // Green for normal rendering
+      ctx.fillText("NORMAL RENDERING", 10, 50);
+      
+      // Show current map progress
+      ctx.fillStyle = "#ffffff";
+      if (tileBuffer.currentMap) {
+        ctx.fillText(`Current Map Row: ${tileBuffer.currentMapRow}/${tileBuffer.currentMap.height}`, 10, 70);
+      }
+    }
+    
+    // Show scroll state
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`Pixel Offset: ${tileBuffer.getPixelOffset().toFixed(2)}`, 10, 130);
+    ctx.fillText(`Buffer Height: ${tileBuffer.height}`, 10, 150);
+    
+    ctx.restore();
+  }
   
   // Restore screen shake transform
   ctx.restore();
