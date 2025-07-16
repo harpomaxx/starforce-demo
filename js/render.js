@@ -47,7 +47,7 @@ export function renderGame() {
   for (let row = 0; row < tilesPerCol; row++) {
     for (let col = 0; col < tilesPerRow; col++) {
       const x = col * TILE_SIZE;
-      const y = row * TILE_SIZE - scrollOffset;
+      const y = row * TILE_SIZE + scrollOffset;
       
       // Skip drawing if outside canvas bounds
       if (x < -TILE_SIZE || x >= CANVAS_WIDTH || 
@@ -351,7 +351,7 @@ export function renderGame() {
       ctx.fillText(`Current Map Row: ${tileBuffer.currentMapRow}`, 10, 70);
       
       if (tileBuffer.currentMap) {
-        const remainingRows = tileBuffer.currentMapRow + 1; // +1 because we include row 0
+        const remainingRows = Math.max(0, tileBuffer.currentMapRow + 1); // +1 because we include row 0
         ctx.fillText(`Remaining Rows: ${remainingRows}`, 10, 90);
       }
       

@@ -26,7 +26,7 @@ class TileBuffer {
   
   setMap(mapData) {
     this.currentMap = mapData;
-    this.currentMapRow = mapData.height - 1; // Start from the end of the map
+    this.currentMapRow = 0; // Start from the beginning of the map
     this.fillInitialBuffer();
   }
   
@@ -37,16 +37,17 @@ class TileBuffer {
   fillInitialBuffer() {
     if (!this.currentMap) return;
     
-    // Fill buffer from top to bottom with map rows in reverse order
+    // Fill buffer so last map row appears at buffer[0] (top of viewport)
+    // buffer[0] = last map row, buffer[height-1] = first map row
     for (let i = 0; i < this.height; i++) {
-      const mapRow = this.currentMapRow - i;
+      const mapRow = (this.currentMap.height - 1) - i;
       if (mapRow >= 0) {
         this.tiles[i] = this.getMapRowTiles(this.currentMap, mapRow);
       } else {
         this.tiles[i] = null;
       }
     }
-    this.currentMapRow -= this.height;
+    this.currentMapRow = this.currentMap.height - this.height;
   }
   
   getMapRowTiles(mapData, row) {
@@ -59,12 +60,12 @@ class TileBuffer {
   shiftAndAdd() {
     if (!this.currentMap) return;
     
-    // Shift everything up (towards index 0)
-    for (let i = 0; i < this.height - 1; i++) {
-      this.tiles[i] = this.tiles[i + 1];
+    // Shift everything down (towards higher indices)
+    for (let i = this.height - 1; i > 0; i--) {
+      this.tiles[i] = this.tiles[i - 1];
     }
     
-    // Add new row at bottom
+    // Add new row at top (buffer[0])
     let newRow = null;
     if (this.currentMapRow >= 0) {
       newRow = this.getMapRowTiles(this.currentMap, this.currentMapRow);
@@ -78,7 +79,7 @@ class TileBuffer {
       this.currentMapRow--;
     }
     
-    this.tiles[this.height - 1] = newRow;
+    this.tiles[0] = newRow;
   }
   
   getTileAt(col, row) {
@@ -301,7 +302,7 @@ export function updateMapScroll() {
   if (!staticMapData || !tileBuffer) return;
   
   // Check if we need to set up next map for transition
-  if (tileBuffer.currentMapRow <= 10 && !tileBuffer.nextMap) {
+  if (tileBuffer.currentMapRow >= -10 && !tileBuffer.nextMap) {
     // Approaching end of current map, prepare next map
     const nextMapIndex = (currentMapIndex + 1) % mapCyclingOrder.length;
     const nextMapName = mapCyclingOrder[nextMapIndex];
