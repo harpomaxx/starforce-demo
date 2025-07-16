@@ -39,7 +39,7 @@ export function renderGame() {
   }
   ctx.restore();
   
-  // Draw map tiles from viewport buffer
+  // Draw map tiles from tile buffer
   const scrollOffset = getMapScrollOffset();
   const tilesPerRow = Math.ceil(CANVAS_WIDTH / TILE_SIZE);
   const tilesPerCol = Math.ceil(CANVAS_HEIGHT / TILE_SIZE) + 1; // +1 for smooth scrolling
@@ -47,7 +47,7 @@ export function renderGame() {
   for (let row = 0; row < tilesPerCol; row++) {
     for (let col = 0; col < tilesPerRow; col++) {
       const x = col * TILE_SIZE;
-      const y = row * TILE_SIZE - scrollOffset;
+      const y = row * TILE_SIZE + scrollOffset;
       
       // Skip drawing if outside canvas bounds
       if (x < -TILE_SIZE || x >= CANVAS_WIDTH || 
@@ -55,6 +55,7 @@ export function renderGame() {
         continue;
       }
       
+      // Get tile directly from buffer using buffer coordinates
       const tileType = getMapTileAt(x, y);
       
       if (tileType === "continent_piece") {
@@ -330,8 +331,9 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.09.12", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.09.15", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
+  
   
   // Restore screen shake transform
   ctx.restore();
