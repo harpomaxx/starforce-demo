@@ -169,12 +169,11 @@ function drawTileset() {
 }
 
 function drawSprite(ctx, sprite, dx, dy, size) {
-    const spriteHeight = sprite.length;
-    const spriteWidth = sprite[0].length;
-    const pixelSize = size / Math.max(spriteWidth, spriteHeight);
+    // All sprites are now standardized to 16x16
+    const pixelSize = size / 16;
     
-    for (let y = 0; y < spriteHeight; y++) {
-        for (let x = 0; x < spriteWidth; x++) {
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
             const color = sprite[y][x];
             // Skip transparent pixels
             if (color && color !== '#00000000') {

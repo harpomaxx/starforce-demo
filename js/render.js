@@ -83,20 +83,18 @@ export function renderGame() {
         // Draw base sprite (foreground - interactive) with 16x16 sprites
         const spriteData = spriteLoader.getSprite(tileType) || baseSprites[tileType];
         if (spriteData && spriteData.sprite) {
-          if (spriteLoader.hasSprite(tileType)) {
-            // Use new sprite loader system
-            spriteLoader.drawPixelSprite(ctx, spriteData, x, y);
-          } else {
-            // Fallback to old system
-            // Draw 16x16 sprite (each pixel is 1.5x1.5 pixels to fit in 24x24 square)
-            const pixelSize = TILE_SIZE / 16; // 1.5 pixels per sprite pixel
-            
-            for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
-              for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
-                const pixelX = x + spriteCol * pixelSize;
-                const pixelY = y + spriteRow * pixelSize;
-                const color = spriteData.sprite[spriteRow][spriteCol];
-                
+          // Use fast 16x16 rendering for all sprites (both JSON and old system)
+          const sprite = spriteData.sprite;
+          const pixelSize = TILE_SIZE / 16; // 1.5 pixels per sprite pixel
+          
+          for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
+            for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
+              const pixelX = x + spriteCol * pixelSize;
+              const pixelY = y + spriteRow * pixelSize;
+              const color = sprite[spriteRow][spriteCol];
+              
+              // Skip transparent pixels
+              if (color && color !== '#00000000') {
                 ctx.save();
                 ctx.fillStyle = color;
                 ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
@@ -338,7 +336,7 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.10.0", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.10.1", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   

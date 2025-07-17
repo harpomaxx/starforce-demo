@@ -63,35 +63,7 @@ export class SpriteLoader {
     return this.sprites.has(spriteName);
   }
 
-  drawPixelSprite(ctx, sprite, x, y, scale = 1.5) {
-    if (!sprite || sprite.type !== 'pixel') {
-      return;
-    }
-
-    const spriteData = sprite.sprite;
-    const spriteHeight = spriteData.length;
-    const spriteWidth = spriteData[0].length;
-    
-    // Calculate pixel size to fit in 24x24 tile space (or maintain aspect ratio)
-    const targetSize = 24; // Standard tile size
-    const pixelSize = targetSize / Math.max(spriteWidth, spriteHeight);
-    
-    for (let row = 0; row < spriteHeight; row++) {
-      for (let col = 0; col < spriteWidth; col++) {
-        const color = spriteData[row][col];
-        // Skip transparent pixels
-        if (color && color !== '#00000000') {
-          ctx.fillStyle = color;
-          ctx.fillRect(
-            x + col * pixelSize,
-            y + row * pixelSize,
-            pixelSize,
-            pixelSize
-          );
-        }
-      }
-    }
-  }
+  // drawPixelSprite method removed - now using fast 16x16 rendering in render.js
 }
 
 export const spriteLoader = new SpriteLoader();
