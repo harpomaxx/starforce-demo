@@ -7,14 +7,70 @@ let mapData = [];
 let selectedTile = 'continent_piece'; // Start with basic continent piece
 let isMouseDown = false; // Track mouse state for drag painting
 let dragMode = 'paint'; // Track whether we're painting or erasing during drag
+let loadedSprites = new Map(); // Store loaded JSON sprites
 
-function initializeEditor() {
+async function loadSprite(spriteName) {
+    if (loadedSprites.has(spriteName)) {
+        return loadedSprites.get(spriteName);
+    }
+
+    try {
+        const response = await fetch(`assets/sprites/${spriteName}.json`);
+        if (!response.ok) {
+            throw new Error(`Failed to load sprite: ${spriteName}`);
+        }
+        const sprite = await response.json();
+        loadedSprites.set(spriteName, sprite);
+        return sprite;
+    } catch (error) {
+        console.warn(`Could not load sprite ${spriteName} from JSON, using fallback:`, error);
+        return null;
+    }
+}
+
+async function loadAllSprites() {
+    const spriteNames = [
+        'continent_piece',
+        'hub',
+        'comm',
+        'dock',
+        'research',
+        'solar',
+        'mining',
+        'turret',
+        'fuel',
+        'cargo',
+        'sensor',
+        'bigbase_1'
+    ];
+
+    const loadPromises = spriteNames.map(name => loadSprite(name));
+    await Promise.all(loadPromises);
+    console.log('Loaded sprites:', Array.from(loadedSprites.keys()));
+}
+
+function getSprite(spriteName) {
+    // Try JSON sprites first, fallback to old system
+    const jsonSprite = loadedSprites.get(spriteName);
+    if (jsonSprite) {
+        return jsonSprite.sprite;
+    }
+    
+    // Fallback to old tileset system
+    const fallbackSprite = baseSprites[spriteName];
+    return fallbackSprite ? fallbackSprite.sprite : null;
+}
+
+async function initializeEditor() {
     const mapCanvas = document.getElementById('map-canvas');
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const resizeButton = document.getElementById('resize-button');
     const exportButton = document.getElementById('export-button');
     const loadButton = document.getElementById('load-button');
     const clearButton = document.getElementById('clear-button');
+
+    // Load all sprites from JSON files first
+    await loadAllSprites();
 
     resizeMap();
 
@@ -48,11 +104,31 @@ function drawMap() {
     const ctx = mapCanvas.getContext('2d');
     ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
 
+    // Draw grid
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= mapWidth; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * TILE_SIZE, 0);
+        ctx.lineTo(x * TILE_SIZE, mapHeight * TILE_SIZE);
+        ctx.stroke();
+    }
+    for (let y = 0; y <= mapHeight; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * TILE_SIZE);
+        ctx.lineTo(mapWidth * TILE_SIZE, y * TILE_SIZE);
+        ctx.stroke();
+    }
+
+    // Draw tiles
     for (let y = 0; y < mapHeight; y++) {
         for (let x = 0; x < mapWidth; x++) {
             const tile = mapData[y][x];
-            if (tile && baseSprites[tile]) {
-                drawSprite(ctx, baseSprites[tile].sprite, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+            if (tile) {
+                const sprite = getSprite(tile);
+                if (sprite) {
+                    drawSprite(ctx, sprite, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+                }
             }
         }
     }
@@ -61,24 +137,50 @@ function drawMap() {
 function drawTileset() {
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const ctx = tilesetCanvas.getContext('2d');
+    ctx.clearRect(0, 0, tilesetCanvas.width, tilesetCanvas.height);
+    
     let x = 0;
     let y = 0;
-    for (const key in baseSprites) {
-        drawSprite(ctx, baseSprites[key].sprite, x, y, TILE_SIZE * 2);
-        x += TILE_SIZE * 2;
-        if (x >= tilesetCanvas.width) {
-            x = 0;
-            y += TILE_SIZE * 2;
+    
+    // Get all available sprites (JSON + fallback)
+    const allSpriteNames = new Set([
+        ...loadedSprites.keys(),
+        ...Object.keys(baseSprites)
+    ]);
+    
+    for (const spriteName of allSpriteNames) {
+        const sprite = getSprite(spriteName);
+        if (sprite) {
+            drawSprite(ctx, sprite, x, y, TILE_SIZE * 2);
+            
+            // Draw sprite name label
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(spriteName.substring(0, 8), x + TILE_SIZE, y + TILE_SIZE * 2 + 10);
+            
+            x += TILE_SIZE * 2 + 10;
+            if (x >= tilesetCanvas.width - TILE_SIZE * 2) {
+                x = 0;
+                y += TILE_SIZE * 2 + 20;
+            }
         }
     }
 }
 
 function drawSprite(ctx, sprite, dx, dy, size) {
-    const pixelSize = size / 16;
-    for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 16; x++) {
-            ctx.fillStyle = sprite[y][x];
-            ctx.fillRect(dx + x * pixelSize, dy + y * pixelSize, pixelSize, pixelSize);
+    const spriteHeight = sprite.length;
+    const spriteWidth = sprite[0].length;
+    const pixelSize = size / Math.max(spriteWidth, spriteHeight);
+    
+    for (let y = 0; y < spriteHeight; y++) {
+        for (let x = 0; x < spriteWidth; x++) {
+            const color = sprite[y][x];
+            // Skip transparent pixels
+            if (color && color !== '#00000000') {
+                ctx.fillStyle = color;
+                ctx.fillRect(dx + x * pixelSize, dy + y * pixelSize, pixelSize, pixelSize);
+            }
         }
     }
 }
@@ -154,13 +256,20 @@ function paintTile(x, y, event) {
 function handleTilesetClick(event) {
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const rect = tilesetCanvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / (TILE_SIZE * 2));
-    const y = Math.floor((event.clientY - rect.top) / (TILE_SIZE * 2));
-    const tilesPerRow = Math.floor(tilesetCanvas.width / (TILE_SIZE * 2));
+    const x = Math.floor((event.clientX - rect.left) / (TILE_SIZE * 2 + 10));
+    const y = Math.floor((event.clientY - rect.top) / (TILE_SIZE * 2 + 20));
+    const tilesPerRow = Math.floor(tilesetCanvas.width / (TILE_SIZE * 2 + 10));
     const index = y * tilesPerRow + x;
-    const keys = Object.keys(baseSprites);
-    if (index < keys.length) {
-        selectedTile = keys[index];
+    
+    // Get all available sprites (JSON + fallback)
+    const allSpriteNames = Array.from(new Set([
+        ...loadedSprites.keys(),
+        ...Object.keys(baseSprites)
+    ]));
+    
+    if (index < allSpriteNames.length) {
+        selectedTile = allSpriteNames[index];
+        console.log('Selected tile:', selectedTile);
     }
 }
 

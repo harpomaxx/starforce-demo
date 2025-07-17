@@ -8,6 +8,7 @@ import { updateItems } from './items.js';
 import { renderGame } from './render.js';
 import { now, rectsCollide } from './utils.js';
 import { playSound } from './audio.js';
+import { spriteLoader } from './spriteLoader.js';
 
 // Performance optimized audio wrapper
 function playLimitedSound(soundType) {
@@ -20,13 +21,16 @@ function playLimitedSound(soundType) {
 setupInput();
 initializePerformance();
 
-// Initialize maps before resetting game
-initializeMaps().then(() => {
+// Initialize maps and sprites before resetting game
+Promise.all([
+  initializeMaps(),
+  spriteLoader.loadAllSprites()
+]).then(() => {
   resetGame();
-  console.log('Game initialized with external maps');
+  console.log('Game initialized with external maps and sprites');
 }).catch(error => {
-  console.error('Failed to initialize maps, starting with fallback:', error);
-  resetGame(); // Start anyway with fallback maps
+  console.error('Failed to initialize assets, starting with fallback:', error);
+  resetGame(); // Start anyway with fallback assets
 });
 
 let lastTime = 0;
