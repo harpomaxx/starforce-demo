@@ -103,20 +103,11 @@ export function renderGame() {
             }
           }
           
-          // Add subtle border for definition around the entire base
-          ctx.save();
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.restore();
         } else {
           // Fallback to solid color if no sprite data
           ctx.save();
           ctx.fillStyle = "#666";
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           ctx.restore();
         }
       }

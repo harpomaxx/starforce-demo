@@ -33,13 +33,42 @@ async function loadAllSprites() {
         'continent_piece',
         'hub',
         'comm',
-        'dock',
-        'research',
         'solar',
         'mining',
         'turret',
         'fuel',
-        'cargo',
+	'base-15',
+	'base-14',
+	'base-13',
+	'base-12',
+	'base-11',
+	'base-10',
+	'base-9',
+	'base-8',
+	'base-7',
+	'base-6',
+	'base-5',
+	'base-4',
+	'base-3',
+	'base-2',
+	'base-1',
+	'base-0',
+	'dome-15',
+	'dome-14',
+	'dome-13',
+	'dome-12', 
+	'dome-11',
+	'dome-10',
+	'dome-9',
+	'dome-8',
+	'dome-7',
+	'dome-6',
+	'dome-5',
+	'dome-4',
+	'dome-3',
+	'dome-2',
+	'dome-1',
+	'dome-0',
         'sensor',
         'bigbase_1'
     ];
@@ -157,12 +186,12 @@ function drawTileset() {
             ctx.fillStyle = '#ffffff';
             ctx.font = '8px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(spriteName.substring(0, 8), x + TILE_SIZE, y + TILE_SIZE * 2 + 10);
+            ctx.fillText(spriteName.substring(0, 10), x + TILE_SIZE, y + TILE_SIZE * 2 + 10);
             
-            x += TILE_SIZE * 2 + 10;
+            x += TILE_SIZE * 2 + 8;
             if (x >= tilesetCanvas.width - TILE_SIZE * 2) {
                 x = 0;
-                y += TILE_SIZE * 2 + 20;
+                y += TILE_SIZE * 2 + 18;
             }
         }
     }
@@ -255,9 +284,9 @@ function paintTile(x, y, event) {
 function handleTilesetClick(event) {
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const rect = tilesetCanvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / (TILE_SIZE * 2 + 10));
-    const y = Math.floor((event.clientY - rect.top) / (TILE_SIZE * 2 + 20));
-    const tilesPerRow = Math.floor(tilesetCanvas.width / (TILE_SIZE * 2 + 10));
+    const x = Math.floor((event.clientX - rect.left) / (TILE_SIZE * 2 + 8));
+    const y = Math.floor((event.clientY - rect.top) / (TILE_SIZE * 2 + 18));
+    const tilesPerRow = Math.floor(tilesetCanvas.width / (TILE_SIZE * 2 + 8));
     const index = y * tilesPerRow + x;
     
     // Get all available sprites (JSON + fallback)
