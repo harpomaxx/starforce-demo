@@ -11,6 +11,15 @@ let loadedSprites = new Map(); // Store loaded JSON sprites
 let showGrid = true; // Grid visibility state
 let filteredSprites = []; // Filtered sprite list for search
 
+// Selection system variables
+let isSelecting = false; // Whether we're in selection mode
+let selectionStart = null; // Start position of selection {x, y}
+let selectionEnd = null; // End position of selection {x, y}
+let selectedArea = null; // Current selected area {x, y, width, height}
+let copiedData = null; // Copied tile data
+let isShiftPressed = false; // Track shift key state
+let lastMousePosition = {x: 0, y: 0}; // Track last mouse position for pasting
+
 async function loadSprite(spriteName) {
     if (loadedSprites.has(spriteName)) {
         return loadedSprites.get(spriteName);
@@ -71,6 +80,12 @@ async function loadAllSprites() {
 	'dome-2',
 	'dome-1',
 	'dome-0',
+	'turret-1',    
+	'turret-2',    
+	'turret-5',    
+	'turret-6',    
+	'turret-9',    
+	'turret-10',    
         'sensor',
         'bigbase_1'
     ];
@@ -134,6 +149,7 @@ async function initializeEditor() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboard);
+    document.addEventListener('keyup', handleKeyboard);
     
     // Close help overlay when clicking outside
     document.getElementById('help-overlay').addEventListener('click', (e) => {
@@ -163,8 +179,8 @@ function drawMap() {
 
     // Draw grid if enabled
     if (showGrid) {
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = '#555'; // Lighter gray for better visibility
+        ctx.lineWidth = 1; // Thicker lines for better visibility
         for (let x = 0; x <= mapWidth; x++) {
             ctx.beginPath();
             ctx.moveTo(x * TILE_SIZE, 0);
@@ -190,6 +206,30 @@ function drawMap() {
                 }
             }
         }
+    }
+    
+    // Draw selection overlay
+    if (selectedArea) {
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(
+            selectedArea.x * TILE_SIZE,
+            selectedArea.y * TILE_SIZE,
+            selectedArea.width * TILE_SIZE,
+            selectedArea.height * TILE_SIZE
+        );
+        
+        // Add semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+        ctx.fillRect(
+            selectedArea.x * TILE_SIZE,
+            selectedArea.y * TILE_SIZE,
+            selectedArea.width * TILE_SIZE,
+            selectedArea.height * TILE_SIZE
+        );
+        
+        ctx.setLineDash([]); // Reset line dash
     }
 }
 
@@ -262,15 +302,60 @@ function handleMapMouseMove(event) {
     const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
     const statusBar = document.getElementById('status-bar');
     const currentTile = (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) ? mapData[y][x] : null;
-    statusBar.textContent = `Position: ${x}, ${y} | Current: ${currentTile || 'empty'} | Selected: ${selectedTile}`;
     
-    // If mouse is down, paint while dragging
-    if (isMouseDown && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+    // Update last mouse position for pasting
+    if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        lastMousePosition = {x, y};
+    }
+    
+    // Update status bar with selection info
+    let statusText = `Position: ${x}, ${y} | Current: ${currentTile || 'empty'} | Selected: ${selectedTile}`;
+    if (selectedArea) {
+        statusText += ` | Selection: ${selectedArea.width}x${selectedArea.height}`;
+    }
+    if (copiedData) {
+        statusText += ` | Copied: ${copiedData.width}x${copiedData.height}`;
+    }
+    statusBar.textContent = statusText;
+    
+    // Handle selection mode
+    if (isSelecting && selectionStart && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        selectionEnd = {x, y};
+        updateSelectedArea();
+        drawMap(); // Redraw to show selection
+        return;
+    }
+    
+    // If mouse is down and not selecting, paint while dragging
+    if (isMouseDown && !isSelecting && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
         paintTile(x, y, event);
     }
 }
 
 function handleMapMouseDown(event) {
+    const mapCanvas = document.getElementById('map-canvas');
+    const rect = mapCanvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
+    const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
+    
+    // Check if we're starting a selection (Shift + Left Click)
+    if (event.button === 0 && isShiftPressed && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        isSelecting = true;
+        selectionStart = {x, y};
+        selectionEnd = {x, y};
+        selectedArea = null;
+        updateSelectedArea();
+        drawMap();
+        event.preventDefault();
+        return;
+    }
+    
+    // Clear selection if clicking without shift
+    if (event.button === 0 && !isShiftPressed && selectedArea) {
+        selectedArea = null;
+        drawMap();
+    }
+    
     isMouseDown = true;
     
     // Set drag mode based on which button was pressed
@@ -280,13 +365,8 @@ function handleMapMouseDown(event) {
         dragMode = 'erase';
     }
     
-    const mapCanvas = document.getElementById('map-canvas');
-    const rect = mapCanvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / TILE_SIZE);
-    const y = Math.floor((event.clientY - rect.top) / TILE_SIZE);
-    
-    // Paint immediately on mouse down
-    if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+    // Paint immediately on mouse down if not selecting
+    if (!isSelecting && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
         paintTile(x, y, event);
     }
     
@@ -295,6 +375,14 @@ function handleMapMouseDown(event) {
 }
 
 function handleMapMouseUp(event) {
+    if (isSelecting) {
+        isSelecting = false;
+        // Finalize selection
+        if (selectionStart && selectionEnd) {
+            updateSelectedArea();
+            drawMap();
+        }
+    }
     isMouseDown = false;
 }
 
@@ -464,7 +552,100 @@ function toggleHelp() {
     helpOverlay.style.display = isVisible ? 'none' : 'flex';
 }
 
+function updateSelectedArea() {
+    if (!selectionStart || !selectionEnd) {
+        selectedArea = null;
+        return;
+    }
+    
+    const minX = Math.min(selectionStart.x, selectionEnd.x);
+    const maxX = Math.max(selectionStart.x, selectionEnd.x);
+    const minY = Math.min(selectionStart.y, selectionEnd.y);
+    const maxY = Math.max(selectionStart.y, selectionEnd.y);
+    
+    selectedArea = {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+    };
+}
+
+function copySelection() {
+    if (!selectedArea) {
+        alert('No area selected. Hold Shift and drag to select an area first.');
+        return;
+    }
+    
+    copiedData = {
+        width: selectedArea.width,
+        height: selectedArea.height,
+        tiles: []
+    };
+    
+    // Copy the tile data
+    for (let y = 0; y < selectedArea.height; y++) {
+        copiedData.tiles[y] = [];
+        for (let x = 0; x < selectedArea.width; x++) {
+            const mapX = selectedArea.x + x;
+            const mapY = selectedArea.y + y;
+            copiedData.tiles[y][x] = (mapX < mapWidth && mapY < mapHeight) ? mapData[mapY][mapX] : null;
+        }
+    }
+    
+    console.log(`Copied ${selectedArea.width}x${selectedArea.height} area`);
+}
+
+function pasteSelection(targetX, targetY) {
+    if (!copiedData) {
+        alert('Nothing to paste. Copy an area first with Ctrl+C.');
+        return;
+    }
+    
+    // Paste the tiles
+    for (let y = 0; y < copiedData.height; y++) {
+        for (let x = 0; x < copiedData.width; x++) {
+            const mapX = targetX + x;
+            const mapY = targetY + y;
+            
+            if (mapX >= 0 && mapX < mapWidth && mapY >= 0 && mapY < mapHeight) {
+                mapData[mapY][mapX] = copiedData.tiles[y][x];
+            }
+        }
+    }
+    
+    drawMap();
+    console.log(`Pasted ${copiedData.width}x${copiedData.height} area at ${targetX}, ${targetY}`);
+}
+
+function deleteSelection() {
+    if (!selectedArea) {
+        alert('No area selected. Hold Shift and drag to select an area first.');
+        return;
+    }
+    
+    // Clear the selected area
+    for (let y = selectedArea.y; y < selectedArea.y + selectedArea.height; y++) {
+        for (let x = selectedArea.x; x < selectedArea.x + selectedArea.width; x++) {
+            if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+                mapData[y][x] = null;
+            }
+        }
+    }
+    
+    drawMap();
+    console.log(`Deleted ${selectedArea.width}x${selectedArea.height} area`);
+}
+
 function handleKeyboard(event) {
+    // Track shift key state
+    if (event.type === 'keydown' && event.key === 'Shift') {
+        isShiftPressed = true;
+    }
+    if (event.type === 'keyup' && event.key === 'Shift') {
+        isShiftPressed = false;
+    }
+    
     // Don't trigger shortcuts when typing in input fields
     if (event.target.tagName === 'INPUT') {
         return;
@@ -484,13 +665,34 @@ function handleKeyboard(event) {
                 event.preventDefault();
                 resizeMap();
                 break;
+            case 'c':
+                event.preventDefault();
+                copySelection();
+                break;
+            case 'v':
+                event.preventDefault();
+                // Paste at last mouse position or center if no position recorded
+                const pasteX = lastMousePosition.x || Math.floor(mapWidth / 2);
+                const pasteY = lastMousePosition.y || Math.floor(mapHeight / 2);
+                pasteSelection(pasteX, pasteY);
+                break;
+            case 'a':
+                event.preventDefault();
+                // Select all
+                selectedArea = {x: 0, y: 0, width: mapWidth, height: mapHeight};
+                drawMap();
+                break;
         }
     } else {
         switch (event.key.toLowerCase()) {
             case 'delete':
             case 'backspace':
                 if (event.target.tagName !== 'INPUT') {
-                    clearMap();
+                    if (selectedArea) {
+                        deleteSelection();
+                    } else {
+                        clearMap();
+                    }
                 }
                 break;
             case 'g':
@@ -503,6 +705,10 @@ function handleKeyboard(event) {
                 const helpOverlay = document.getElementById('help-overlay');
                 if (helpOverlay.style.display !== 'none') {
                     toggleHelp();
+                } else if (selectedArea) {
+                    // Clear selection
+                    selectedArea = null;
+                    drawMap();
                 }
                 break;
         }

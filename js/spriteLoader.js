@@ -88,6 +88,12 @@ export class SpriteLoader {
 	'dome-1',
 	'dome-0',
 	'base-0',
+	'turret-1',    
+	'turret-2',    
+	'turret-5',    
+	'turret-6',    
+	'turret-9',    
+	'turret-10',    
       'bigbase_1'
     ];
 
