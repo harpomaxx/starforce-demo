@@ -2,6 +2,7 @@ export class SpriteLoader {
   constructor() {
     this.sprites = new Map();
     this.loadPromises = new Map();
+    this.spriteCanvases = new Map();
   }
 
   async loadSprite(spriteName) {
@@ -19,6 +20,13 @@ export class SpriteLoader {
     try {
       const sprite = await loadPromise;
       this.sprites.set(spriteName, sprite);
+      
+      // Create cached canvas for this sprite
+      if (sprite && sprite.sprite) {
+        const canvas = this._createSpriteCanvas(sprite);
+        this.spriteCanvases.set(spriteName, canvas);
+      }
+      
       this.loadPromises.delete(spriteName);
       return sprite;
     } catch (error) {
@@ -93,6 +101,38 @@ export class SpriteLoader {
 
   hasSprite(spriteName) {
     return this.sprites.has(spriteName);
+  }
+
+  getSpriteCanvas(spriteName) {
+    return this.spriteCanvases.get(spriteName);
+  }
+
+  hasSpriteCanvas(spriteName) {
+    return this.spriteCanvases.has(spriteName);
+  }
+
+  _createSpriteCanvas(spriteData) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    
+    const sprite = spriteData.sprite;
+    
+    // Render sprite pixels to canvas
+    for (let row = 0; row < 16; row++) {
+      for (let col = 0; col < 16; col++) {
+        const color = sprite[row][col];
+        
+        // Skip transparent pixels
+        if (color && color !== '#00000000') {
+          ctx.fillStyle = color;
+          ctx.fillRect(col, row, 1, 1);
+        }
+      }
+    }
+    
+    return canvas;
   }
 
   // drawPixelSprite method removed - now using fast 16x16 rendering in render.js

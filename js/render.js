@@ -80,10 +80,15 @@ export function renderGame() {
         ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
         ctx.restore();
         
-        // Draw base sprite (foreground - interactive) with 16x16 sprites
+        // Draw base sprite (foreground - interactive) with cached canvas
+        const spriteCanvas = spriteLoader.getSpriteCanvas(tileType);
         const spriteData = spriteLoader.getSprite(tileType) || baseSprites[tileType];
-        if (spriteData && spriteData.sprite) {
-          // Use fast 16x16 rendering for all sprites (both JSON and old system)
+        
+        if (spriteCanvas) {
+          // Use cached canvas for optimal performance
+          ctx.drawImage(spriteCanvas, x, y, TILE_SIZE, TILE_SIZE);
+        } else if (spriteData && spriteData.sprite) {
+          // Fallback to pixel rendering for legacy sprites or if caching failed
           const sprite = spriteData.sprite;
           const pixelSize = TILE_SIZE / 16; // 1.5 pixels per sprite pixel
           
@@ -327,7 +332,7 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.10.1", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.11.0", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   

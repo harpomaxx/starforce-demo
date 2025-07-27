@@ -87,8 +87,12 @@ The game includes touch controls with on-screen buttons. Mobile detection and to
 
 ## Versioning Guidelines
 
-- Always increase the version after a change. Depending on the impact, you can change the major or minor version number.
+- IMPORTANT: Always increase the version after a change. Depending on the impact, you can change the major or minor version number.
 
 ## Development Principles
 
 - Always try to avoid major modifications or refactoring in the code. Unless it is specified.
+
+## Version Control Best Practices
+
+- Always create a new branch before solving a new issue. Analyze if the branch is a bug, feature, etc.
