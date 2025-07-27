@@ -8,6 +8,8 @@ let selectedTile = 'continent_piece'; // Start with basic continent piece
 let isMouseDown = false; // Track mouse state for drag painting
 let dragMode = 'paint'; // Track whether we're painting or erasing during drag
 let loadedSprites = new Map(); // Store loaded JSON sprites
+let showGrid = true; // Grid visibility state
+let filteredSprites = []; // Filtered sprite list for search
 
 async function loadSprite(spriteName) {
     if (loadedSprites.has(spriteName)) {
@@ -97,22 +99,48 @@ async function initializeEditor() {
     const exportButton = document.getElementById('export-button');
     const loadButton = document.getElementById('load-button');
     const clearButton = document.getElementById('clear-button');
+    const gridToggle = document.getElementById('grid-toggle');
+    const helpButton = document.getElementById('help-button');
+    const closeHelp = document.getElementById('close-help');
+    const tileSearch = document.getElementById('tile-search');
 
     // Load all sprites from JSON files first
     await loadAllSprites();
+    initializeFilteredSprites();
 
     resizeMap();
 
+    // Map canvas events
     mapCanvas.addEventListener('mousemove', handleMapMouseMove);
     mapCanvas.addEventListener('mousedown', handleMapMouseDown);
     mapCanvas.addEventListener('mouseup', handleMapMouseUp);
-    mapCanvas.addEventListener('mouseleave', handleMapMouseLeave); // Stop painting when leaving canvas
-    mapCanvas.addEventListener('contextmenu', e => e.preventDefault()); // Disable context menu
+    mapCanvas.addEventListener('mouseleave', handleMapMouseLeave);
+    mapCanvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    // Tileset canvas events
     tilesetCanvas.addEventListener('click', handleTilesetClick);
+    
+    // Button events
     resizeButton.addEventListener('click', resizeMap);
     exportButton.addEventListener('click', exportMap);
     loadButton.addEventListener('change', loadMap);
     clearButton.addEventListener('click', clearMap);
+    gridToggle.addEventListener('click', toggleGrid);
+    helpButton.addEventListener('click', toggleHelp);
+    closeHelp.addEventListener('click', toggleHelp);
+    
+    // Search functionality
+    tileSearch.addEventListener('input', handleTileSearch);
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboard);
+    
+    // Close help overlay when clicking outside
+    document.getElementById('help-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'help-overlay') {
+            toggleHelp();
+        }
+    });
 
     drawTileset();
     drawMap();
@@ -133,20 +161,22 @@ function drawMap() {
     const ctx = mapCanvas.getContext('2d');
     ctx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
 
-    // Draw grid
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x <= mapWidth; x++) {
-        ctx.beginPath();
-        ctx.moveTo(x * TILE_SIZE, 0);
-        ctx.lineTo(x * TILE_SIZE, mapHeight * TILE_SIZE);
-        ctx.stroke();
-    }
-    for (let y = 0; y <= mapHeight; y++) {
-        ctx.beginPath();
-        ctx.moveTo(0, y * TILE_SIZE);
-        ctx.lineTo(mapWidth * TILE_SIZE, y * TILE_SIZE);
-        ctx.stroke();
+    // Draw grid if enabled
+    if (showGrid) {
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= mapWidth; x++) {
+            ctx.beginPath();
+            ctx.moveTo(x * TILE_SIZE, 0);
+            ctx.lineTo(x * TILE_SIZE, mapHeight * TILE_SIZE);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= mapHeight; y++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y * TILE_SIZE);
+            ctx.lineTo(mapWidth * TILE_SIZE, y * TILE_SIZE);
+            ctx.stroke();
+        }
     }
 
     // Draw tiles
@@ -170,31 +200,43 @@ function drawTileset() {
     
     let x = 0;
     let y = 0;
+    const tileSize = TILE_SIZE * 3; // Increased from 2 to 3 for larger sprites
+    const spacing = 12; // Increased spacing proportionally
+    const totalTileWidth = tileSize + spacing;
+    const totalTileHeight = tileSize + 24; // Increased for larger text spacing
     
-    // Get all available sprites (JSON + fallback)
-    const allSpriteNames = new Set([
-        ...loadedSprites.keys(),
-        ...Object.keys(baseSprites)
-    ]);
+    // Use filtered sprites or all sprites
+    const spritesToDraw = filteredSprites.length > 0 ? filteredSprites : getAllSpriteNames();
     
-    for (const spriteName of allSpriteNames) {
+    for (let i = 0; i < spritesToDraw.length; i++) {
+        const spriteName = spritesToDraw[i];
         const sprite = getSprite(spriteName);
         if (sprite) {
-            drawSprite(ctx, sprite, x, y, TILE_SIZE * 2);
+            // Highlight selected tile
+            if (spriteName === selectedTile) {
+                ctx.strokeStyle = '#00d4ff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x - 2, y - 2, tileSize + 4, tileSize + 4);
+            }
+            
+            drawSprite(ctx, sprite, x, y, tileSize);
             
             // Draw sprite name label
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '8px monospace';
+            ctx.fillStyle = spriteName === selectedTile ? '#00d4ff' : '#ffffff';
+            ctx.font = '10px monospace'; // Slightly larger font
             ctx.textAlign = 'center';
-            ctx.fillText(spriteName.substring(0, 10), x + TILE_SIZE, y + TILE_SIZE * 2 + 10);
+            ctx.fillText(spriteName.substring(0, 12), x + tileSize/2, y + tileSize + 14); // More characters and better positioning
             
-            x += TILE_SIZE * 2 + 8;
-            if (x >= tilesetCanvas.width - TILE_SIZE * 2) {
+            x += totalTileWidth;
+            if (x >= tilesetCanvas.width - tileSize) {
                 x = 0;
-                y += TILE_SIZE * 2 + 18;
+                y += totalTileHeight;
             }
         }
     }
+    
+    // Don't resize canvas during normal operations to prevent jumping
+    // Only set height once during initialization or search changes
 }
 
 function drawSprite(ctx, sprite, dx, dy, size) {
@@ -284,20 +326,29 @@ function paintTile(x, y, event) {
 function handleTilesetClick(event) {
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const rect = tilesetCanvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / (TILE_SIZE * 2 + 8));
-    const y = Math.floor((event.clientY - rect.top) / (TILE_SIZE * 2 + 18));
-    const tilesPerRow = Math.floor(tilesetCanvas.width / (TILE_SIZE * 2 + 8));
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+    
+    const tileSize = TILE_SIZE * 3; // Match the display size
+    const spacing = 12;
+    const totalTileWidth = tileSize + spacing;
+    const totalTileHeight = tileSize + 24;
+    
+    const x = Math.floor(clickX / totalTileWidth);
+    const y = Math.floor(clickY / totalTileHeight);
+    const tilesPerRow = Math.floor(tilesetCanvas.width / totalTileWidth);
     const index = y * tilesPerRow + x;
     
-    // Get all available sprites (JSON + fallback)
-    const allSpriteNames = Array.from(new Set([
-        ...loadedSprites.keys(),
-        ...Object.keys(baseSprites)
-    ]));
+    // Use filtered sprites or all sprites
+    const spritesToUse = filteredSprites.length > 0 ? filteredSprites : getAllSpriteNames();
     
-    if (index < allSpriteNames.length) {
-        selectedTile = allSpriteNames[index];
-        console.log('Selected tile:', selectedTile);
+    if (index < spritesToUse.length) {
+        const newSelectedTile = spritesToUse[index];
+        if (newSelectedTile !== selectedTile) {
+            selectedTile = newSelectedTile;
+            console.log('Selected tile:', selectedTile);
+            drawTileset(); // Only redraw if selection actually changed
+        }
     }
 }
 
@@ -354,6 +405,107 @@ function clearMap() {
     if (confirm('Clear the entire map? This cannot be undone.')) {
         mapData = Array(mapHeight).fill(null).map(() => Array(mapWidth).fill(null));
         drawMap();
+    }
+}
+
+function getAllSpriteNames() {
+    return Array.from(new Set([
+        ...loadedSprites.keys(),
+        ...Object.keys(baseSprites)
+    ]));
+}
+
+function initializeFilteredSprites() {
+    filteredSprites = getAllSpriteNames();
+    calculateTilesetHeight();
+}
+
+function calculateTilesetHeight() {
+    const tilesetCanvas = document.getElementById('tileset-canvas');
+    const tileSize = TILE_SIZE * 3; // Match the display size
+    const spacing = 12;
+    const totalTileWidth = tileSize + spacing;
+    const totalTileHeight = tileSize + 24;
+    
+    const spritesToDraw = filteredSprites.length > 0 ? filteredSprites : getAllSpriteNames();
+    const tilesPerRow = Math.floor(tilesetCanvas.width / totalTileWidth);
+    const rows = Math.ceil(spritesToDraw.length / tilesPerRow);
+    const requiredHeight = rows * totalTileHeight;
+    
+    tilesetCanvas.height = Math.max(512, requiredHeight + 50);
+}
+
+function handleTileSearch(event) {
+    const searchTerm = event.target.value.toLowerCase().trim();
+    
+    if (searchTerm === '') {
+        filteredSprites = getAllSpriteNames();
+    } else {
+        const allSprites = getAllSpriteNames();
+        filteredSprites = allSprites.filter(name => 
+            name.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    calculateTilesetHeight(); // Recalculate height for new sprite set
+    drawTileset();
+}
+
+function toggleGrid() {
+    showGrid = !showGrid;
+    const gridButton = document.getElementById('grid-toggle');
+    gridButton.textContent = showGrid ? '⊞ Grid' : '⊡ Grid';
+    drawMap();
+}
+
+function toggleHelp() {
+    const helpOverlay = document.getElementById('help-overlay');
+    const isVisible = helpOverlay.style.display !== 'none';
+    helpOverlay.style.display = isVisible ? 'none' : 'flex';
+}
+
+function handleKeyboard(event) {
+    // Don't trigger shortcuts when typing in input fields
+    if (event.target.tagName === 'INPUT') {
+        return;
+    }
+    
+    if (event.ctrlKey || event.metaKey) {
+        switch (event.key.toLowerCase()) {
+            case 's':
+                event.preventDefault();
+                exportMap();
+                break;
+            case 'o':
+                event.preventDefault();
+                document.getElementById('load-button').click();
+                break;
+            case 'r':
+                event.preventDefault();
+                resizeMap();
+                break;
+        }
+    } else {
+        switch (event.key.toLowerCase()) {
+            case 'delete':
+            case 'backspace':
+                if (event.target.tagName !== 'INPUT') {
+                    clearMap();
+                }
+                break;
+            case 'g':
+                toggleGrid();
+                break;
+            case 'h':
+                toggleHelp();
+                break;
+            case 'escape':
+                const helpOverlay = document.getElementById('help-overlay');
+                if (helpOverlay.style.display !== 'none') {
+                    toggleHelp();
+                }
+                break;
+        }
     }
 }
 
