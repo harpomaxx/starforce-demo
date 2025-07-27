@@ -1,0 +1,25 @@
+{
+  "type": "pixel",
+  "description": "Command Hub - central core with connection points",
+  "width": 16,
+  "height": 16,
+  "sprite": [
+    ["#2c3e50", "#2c3e50", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#2c3e50", "#2c3e50", "#2c3e50"],
+    ["#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50", "#2c3e50"],
+    ["#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#2c3e50", "#2c3e50", "#2c3e50", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#2c3e50", "#2c3e50", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#ffffff", "#ffffff", "#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#4a90e2", "#4a90e2", "#ffffff", "#2c3e50", "#2c3e50", "#2c3e50", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#2c3e50", "#2c3e50", "#2c3e50", "#ffffff", "#4a90e2", "#2c3e50"],
+    ["#2c3e50", "#4a90e2", "#4a90e2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#4a90e2", "#4a90e2", "#2c3e50"],
+    ["#2c3e50", "#2c3e50", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#4a90e2", "#2c3e50", "#2c3e50"],
+    ["#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50", "#2c3e50"]
+  ],
+  "colors": ["#4a90e2", "#2c3e50", "#ffffff"]
+}

@@ -169,7 +169,7 @@ export function initializeTileBuffer() {
 
 
 // Map cycling order for automatic progression
-const mapCyclingOrder = ["deepspace", "asteroids","deepspace", "nebula","deepspace","bigbase"];
+const mapCyclingOrder = ["deepspace", "test", "asteroids","deepspace", "nebula","deepspace","bigbase"];
 let currentMapIndex = 0;
 
 // Simplified map scrolling functions

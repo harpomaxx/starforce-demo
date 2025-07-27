@@ -1,0 +1,25 @@
+{
+  "type": "pixel",
+  "description": "Sensor Array - dish/scanner pattern",
+  "width": 16,
+  "height": 16,
+  "sprite": [
+    ["#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3"],
+    ["#2471a3", "#3498db", "#3498db", "#3498db", "#3498db", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#3498db", "#3498db", "#3498db", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#5dade2", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#5dade2", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#3498db", "#3498db", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#3498db", "#3498db", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#3498db", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#3498db", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#2471a3"],
+    ["#2471a3", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#2471a3"],
+    ["#2471a3", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#2471a3"],
+    ["#2471a3", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#2471a3"],
+    ["#2471a3", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#2471a3"],
+    ["#2471a3", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#3498db", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#3498db", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#3498db", "#3498db", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#3498db", "#3498db", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#5dade2", "#5dade2", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#5dade2", "#5dade2", "#3498db", "#2471a3"],
+    ["#2471a3", "#3498db", "#3498db", "#3498db", "#3498db", "#5dade2", "#5dade2", "#ffffff", "#ffffff", "#5dade2", "#5dade2", "#3498db", "#3498db", "#3498db", "#3498db", "#2471a3"],
+    ["#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3", "#2471a3"]
+  ],
+  "colors": ["#3498db", "#ffffff", "#2471a3", "#5dade2"]
+}

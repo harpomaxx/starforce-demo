@@ -1,4 +1,5 @@
 import { state, CANVAS_WIDTH, CANVAS_HEIGHT, BOMB_COOLDOWN, BOMB_MAX, baseSprites, getCurrentMapName, TILE_SIZE, getMapTileAt, getMapScrollOffset } from './state.js';
+import { spriteLoader } from './spriteLoader.js';
 import { drawPlayer } from './player.js';
 import { drawEnemies } from './enemy.js';
 import { drawBoss } from './boss.js';
@@ -79,39 +80,39 @@ export function renderGame() {
         ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
         ctx.restore();
         
-        // Draw base sprite (foreground - interactive) with 16x16 sprites
-        const spriteData = baseSprites[tileType];
-        if (spriteData && spriteData.sprite) {
-          // Draw 16x16 sprite (each pixel is 1.5x1.5 pixels to fit in 24x24 square)
+        // Draw base sprite (foreground - interactive) with cached canvas
+        const spriteCanvas = spriteLoader.getSpriteCanvas(tileType);
+        const spriteData = spriteLoader.getSprite(tileType) || baseSprites[tileType];
+        
+        if (spriteCanvas) {
+          // Use cached canvas for optimal performance
+          ctx.drawImage(spriteCanvas, x, y, TILE_SIZE, TILE_SIZE);
+        } else if (spriteData && spriteData.sprite) {
+          // Fallback to pixel rendering for legacy sprites or if caching failed
+          const sprite = spriteData.sprite;
           const pixelSize = TILE_SIZE / 16; // 1.5 pixels per sprite pixel
           
           for (let spriteRow = 0; spriteRow < 16; spriteRow++) {
             for (let spriteCol = 0; spriteCol < 16; spriteCol++) {
               const pixelX = x + spriteCol * pixelSize;
               const pixelY = y + spriteRow * pixelSize;
-              const color = spriteData.sprite[spriteRow][spriteCol];
+              const color = sprite[spriteRow][spriteCol];
               
-              ctx.save();
-              ctx.fillStyle = color;
-              ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
-              ctx.restore();
+              // Skip transparent pixels
+              if (color && color !== '#00000000') {
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
+                ctx.restore();
+              }
             }
           }
           
-          // Add subtle border for definition around the entire base
-          ctx.save();
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.restore();
         } else {
           // Fallback to solid color if no sprite data
           ctx.save();
           ctx.fillStyle = "#666";
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
           ctx.restore();
         }
       }
@@ -331,7 +332,7 @@ export function renderGame() {
   ctx.fillStyle = "#ffff00";
   ctx.font = "10px monospace";
   ctx.textAlign = "right";
-  ctx.fillText("v1.09.15", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
+  ctx.fillText("v1.11.0", CANVAS_WIDTH - 5, CANVAS_HEIGHT - 5);
   ctx.restore();
   
   
