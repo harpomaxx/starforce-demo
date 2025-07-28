@@ -26,19 +26,29 @@ let lastMousePosition = {x: 0, y: 0}; // Track last mouse position for pasting
 
 async function loadSprite(spriteName) {
     if (loadedSprites.has(spriteName)) {
+        console.log(`✓ Sprite ${spriteName} already loaded from cache`);
         return loadedSprites.get(spriteName);
     }
 
     try {
+        console.log(`🔄 Loading sprite: ${spriteName}`);
         const response = await fetch(`assets/sprites/${spriteName}.json`);
         if (!response.ok) {
-            throw new Error(`Failed to load sprite: ${spriteName}`);
+            throw new Error(`HTTP ${response.status} ${response.statusText}: Failed to load sprite: ${spriteName}`);
         }
         const sprite = await response.json();
+        
+        // Validate sprite structure
+        if (!sprite.sprite || !Array.isArray(sprite.sprite)) {
+            throw new Error(`Invalid sprite format for ${spriteName}: missing or invalid sprite array`);
+        }
+        
         loadedSprites.set(spriteName, sprite);
+        console.log(`✅ Successfully loaded sprite: ${spriteName}`);
         return sprite;
     } catch (error) {
-        console.warn(`Could not load sprite ${spriteName} from JSON, using fallback:`, error);
+        console.error(`❌ Failed to load sprite ${spriteName}:`, error.message);
+        console.error('Full error:', error);
         return null;
     }
 }
@@ -63,8 +73,9 @@ async function loadTemplate(templateName) {
 }
 
 async function loadAllSprites() {
+    console.log('🚀 Starting sprite loading process...');
     const spriteNames = [
-        'continent_piece',
+	    'continent_piece',
         'hub',
         'comm',
         'solar',
@@ -110,19 +121,52 @@ async function loadAllSprites() {
 	'turret-9',    
 	'turret-10',    
         'sensor',
-        'bigbase_1'
+        'bigbase_1',
+        'turret-big_0',
+        'turret-big_1',
+        'turret-big_2',
+        'turret-big_3',
+        'turret-big_4',
+        'turret-big_5',
+        'turret-big_6',
+        'turret-big_7',
+        'turret-big_8',
+        'turret-big_9',
+        'turret-big_10',
+        'turret-big_11',
+        'turret-big_12',
+        'turret-big_13',
+        'turret-big_14',
+        'turret-big_15',
     ];
 
+    console.log(`📋 Attempting to load ${spriteNames.length} sprites:`, spriteNames);
+    
     const loadPromises = spriteNames.map(name => loadSprite(name));
-    await Promise.all(loadPromises);
-    console.log('Loaded sprites:', Array.from(loadedSprites.keys()));
+    const results = await Promise.allSettled(loadPromises);
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value !== null) {
+            successCount++;
+        } else {
+            failCount++;
+            console.warn(`❌ Failed to load sprite: ${spriteNames[index]}`);
+        }
+    });
+    
+    console.log(`📊 Sprite loading complete: ${successCount} success, ${failCount} failed`);
+    console.log('✅ Successfully loaded sprites:', Array.from(loadedSprites.keys()));
 }
 
 async function loadAllTemplates() {
     const templateNames = [
         'base_template',
         'dome_template', 
-        'turret_template'
+        'turret_template',
+        'turret-big_template'
     ];
 
     const loadPromises = templateNames.map(name => loadTemplate(name));
@@ -144,7 +188,12 @@ function getSprite(spriteName) {
     
     // Fallback to old tileset system
     const fallbackSprite = baseSprites[spriteName];
-    return fallbackSprite ? fallbackSprite.sprite : null;
+    if (fallbackSprite) {
+        return fallbackSprite.sprite;
+    }
+    
+    console.warn(`❌ No sprite found for: ${spriteName}`);
+    return null;
 }
 
 async function initializeEditor() {
@@ -162,9 +211,21 @@ async function initializeEditor() {
     const templatesMode = document.getElementById('templates-mode');
 
     // Load all sprites and templates from JSON files first
+    console.log('🏗️ Starting editor initialization...');
+    
+    console.log('⏳ Loading sprites...');
     await loadAllSprites();
+    
+    console.log('⏳ Loading templates...');
     await loadAllTemplates();
+    
+    console.log('⏳ Initializing filtered sprites...');
     initializeFilteredSprites();
+    
+    console.log('🎨 Drawing initial tileset...');
+    drawTileset();
+    
+    console.log('✅ Editor initialization complete!');
 
     resizeMap();
 
@@ -330,18 +391,19 @@ function drawMap() {
 }
 
 function drawTileset() {
+    console.log(`🎨 Drawing tileset in ${currentMode} mode`);
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const ctx = tilesetCanvas.getContext('2d');
     ctx.clearRect(0, 0, tilesetCanvas.width, tilesetCanvas.height);
     
     if (currentMode === 'tiles') {
-        drawTiles(ctx);
+        drawTiles(ctx, tilesetCanvas);
     } else {
-        drawTemplates(ctx);
+        drawTemplates(ctx, tilesetCanvas);
     }
 }
 
-function drawTiles(ctx) {
+function drawTiles(ctx, tilesetCanvas) {
     let x = 0;
     let y = 0;
     const tileSize = TILE_SIZE * 3; // Increased from 2 to 3 for larger sprites
@@ -351,11 +413,16 @@ function drawTiles(ctx) {
     
     // Use filtered sprites or all sprites
     const spritesToDraw = filteredSprites.length > 0 ? filteredSprites : getAllSpriteNames();
+    console.log(`🎯 Drawing ${spritesToDraw.length} tiles:`, spritesToDraw.slice(0, 10), spritesToDraw.length > 10 ? '...' : '');
+    
+    let drawnCount = 0;
+    let skippedCount = 0;
     
     for (let i = 0; i < spritesToDraw.length; i++) {
         const spriteName = spritesToDraw[i];
         const sprite = getSprite(spriteName);
         if (sprite) {
+            drawnCount++;
             // Highlight selected tile
             if (spriteName === selectedTile) {
                 ctx.strokeStyle = '#00d4ff';
@@ -376,11 +443,16 @@ function drawTiles(ctx) {
                 x = 0;
                 y += totalTileHeight;
             }
+        } else {
+            skippedCount++;
+            console.warn(`⚠️ Sprite ${spriteName} returned null from getSprite()`);
         }
     }
+    
+    console.log(`📊 Tileset drawing complete: ${drawnCount} drawn, ${skippedCount} skipped`);
 }
 
-function drawTemplates(ctx) {
+function drawTemplates(ctx, tilesetCanvas) {
     let x = 0;
     let y = 0;
     const templateSize = TILE_SIZE * 6; // Even larger size for better visibility
@@ -415,7 +487,7 @@ function drawTemplates(ctx) {
         ctx.fillText(template.name, x + templateSize/2, y + templateSize + 20);
         
         x += totalTemplateWidth;
-        if (x >= 512 - templateSize) { // Use fixed canvas width
+        if (x >= tilesetCanvas.width - templateSize) { // Use canvas width
             x = 0;
             y += totalTemplateHeight;
         }
@@ -783,10 +855,16 @@ function clearMap() {
 }
 
 function getAllSpriteNames() {
-    return Array.from(new Set([
-        ...loadedSprites.keys(),
-        ...Object.keys(baseSprites)
-    ]));
+    const jsonSprites = Array.from(loadedSprites.keys());
+    const hardcodedSprites = Object.keys(baseSprites);
+    const allSprites = Array.from(new Set([...jsonSprites, ...hardcodedSprites]));
+    
+    console.log(`🔍 Sprite inventory:`);
+    console.log(`  📂 JSON sprites (${jsonSprites.length}):`, jsonSprites);
+    console.log(`  🔧 Hardcoded sprites (${hardcodedSprites.length}):`, hardcodedSprites);
+    console.log(`  📋 Total unique sprites (${allSprites.length}):`, allSprites);
+    
+    return allSprites;
 }
 
 function initializeFilteredSprites() {
