@@ -1,0 +1,15 @@
+{
+  "id": "dome_complete",
+  "name": "Dome Structure", 
+  "description": "Complete 4x4 dome facility",
+  "width": 4,
+  "height": 4,
+  "tiles": [
+    ["dome-0", "dome-1", "dome-2", "dome-3"],
+    ["dome-4", "dome-5", "dome-6", "dome-7"],
+    ["dome-8", "dome-9", "dome-10", "dome-11"],
+    ["dome-12", "dome-13", "dome-14", "dome-15"]
+  ],
+  "category": "structures",
+  "previewTile": "dome-5"
+}

@@ -8,8 +8,12 @@ let selectedTile = 'continent_piece'; // Start with basic continent piece
 let isMouseDown = false; // Track mouse state for drag painting
 let dragMode = 'paint'; // Track whether we're painting or erasing during drag
 let loadedSprites = new Map(); // Store loaded JSON sprites
+let loadedTemplates = new Map(); // Store loaded template definitions
 let showGrid = true; // Grid visibility state
 let filteredSprites = []; // Filtered sprite list for search
+let currentMode = 'tiles'; // Current editor mode: 'tiles' or 'templates'
+let selectedTemplate = null; // Currently selected template for placement
+let templatePreviewPosition = null; // Current hover position for template preview
 
 // Selection system variables
 let isSelecting = false; // Whether we're in selection mode
@@ -35,6 +39,25 @@ async function loadSprite(spriteName) {
         return sprite;
     } catch (error) {
         console.warn(`Could not load sprite ${spriteName} from JSON, using fallback:`, error);
+        return null;
+    }
+}
+
+async function loadTemplate(templateName) {
+    if (loadedTemplates.has(templateName)) {
+        return loadedTemplates.get(templateName);
+    }
+
+    try {
+        const response = await fetch(`assets/templates/${templateName}.json`);
+        if (!response.ok) {
+            throw new Error(`Failed to load template: ${templateName}`);
+        }
+        const template = await response.json();
+        loadedTemplates.set(templateName, template);
+        return template;
+    } catch (error) {
+        console.warn(`Could not load template ${templateName}:`, error);
         return null;
     }
 }
@@ -95,6 +118,23 @@ async function loadAllSprites() {
     console.log('Loaded sprites:', Array.from(loadedSprites.keys()));
 }
 
+async function loadAllTemplates() {
+    const templateNames = [
+        'base_template',
+        'dome_template', 
+        'turret_template'
+    ];
+
+    const loadPromises = templateNames.map(name => loadTemplate(name));
+    await Promise.all(loadPromises);
+    console.log('Loaded templates:', Array.from(loadedTemplates.keys()));
+    
+    // Debug: show template details
+    loadedTemplates.forEach((template, name) => {
+        console.log(`Template ${name}:`, template);
+    });
+}
+
 function getSprite(spriteName) {
     // Try JSON sprites first, fallback to old system
     const jsonSprite = loadedSprites.get(spriteName);
@@ -118,9 +158,12 @@ async function initializeEditor() {
     const helpButton = document.getElementById('help-button');
     const closeHelp = document.getElementById('close-help');
     const tileSearch = document.getElementById('tile-search');
+    const tilesMode = document.getElementById('tiles-mode');
+    const templatesMode = document.getElementById('templates-mode');
 
-    // Load all sprites from JSON files first
+    // Load all sprites and templates from JSON files first
     await loadAllSprites();
+    await loadAllTemplates();
     initializeFilteredSprites();
 
     resizeMap();
@@ -146,6 +189,10 @@ async function initializeEditor() {
     
     // Search functionality
     tileSearch.addEventListener('input', handleTileSearch);
+    
+    // Mode toggle functionality
+    tilesMode.addEventListener('click', () => switchMode('tiles'));
+    templatesMode.addEventListener('click', () => switchMode('templates'));
     
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboard);
@@ -208,6 +255,55 @@ function drawMap() {
         }
     }
     
+    // Draw template preview
+    if (templatePreviewPosition && selectedTemplate) {
+        const canPlace = templatePreviewPosition.x + selectedTemplate.width <= mapWidth && 
+                        templatePreviewPosition.y + selectedTemplate.height <= mapHeight;
+        
+        // Draw template outline
+        ctx.strokeStyle = canPlace ? '#00d4ff' : '#ff4757';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(
+            templatePreviewPosition.x * TILE_SIZE,
+            templatePreviewPosition.y * TILE_SIZE,
+            selectedTemplate.width * TILE_SIZE,
+            selectedTemplate.height * TILE_SIZE
+        );
+        
+        // Add semi-transparent overlay
+        ctx.fillStyle = canPlace ? 'rgba(0, 212, 255, 0.2)' : 'rgba(255, 71, 87, 0.2)';
+        ctx.fillRect(
+            templatePreviewPosition.x * TILE_SIZE,
+            templatePreviewPosition.y * TILE_SIZE,
+            selectedTemplate.width * TILE_SIZE,
+            selectedTemplate.height * TILE_SIZE
+        );
+        
+        // Draw template tiles with transparency if it can be placed
+        if (canPlace) {
+            ctx.globalAlpha = 0.6;
+            for (let y = 0; y < selectedTemplate.height; y++) {
+                for (let x = 0; x < selectedTemplate.width; x++) {
+                    const tileName = selectedTemplate.tiles[y][x];
+                    if (tileName) {
+                        const sprite = getSprite(tileName);
+                        if (sprite) {
+                            drawSprite(ctx, sprite, 
+                                (templatePreviewPosition.x + x) * TILE_SIZE, 
+                                (templatePreviewPosition.y + y) * TILE_SIZE, 
+                                TILE_SIZE
+                            );
+                        }
+                    }
+                }
+            }
+            ctx.globalAlpha = 1.0;
+        }
+        
+        ctx.setLineDash([]); // Reset line dash
+    }
+    
     // Draw selection overlay
     if (selectedArea) {
         ctx.strokeStyle = '#00ff00';
@@ -238,6 +334,14 @@ function drawTileset() {
     const ctx = tilesetCanvas.getContext('2d');
     ctx.clearRect(0, 0, tilesetCanvas.width, tilesetCanvas.height);
     
+    if (currentMode === 'tiles') {
+        drawTiles(ctx);
+    } else {
+        drawTemplates(ctx);
+    }
+}
+
+function drawTiles(ctx) {
     let x = 0;
     let y = 0;
     const tileSize = TILE_SIZE * 3; // Increased from 2 to 3 for larger sprites
@@ -274,9 +378,48 @@ function drawTileset() {
             }
         }
     }
+}
+
+function drawTemplates(ctx) {
+    let x = 0;
+    let y = 0;
+    const templateSize = TILE_SIZE * 6; // Even larger size for better visibility
+    const spacing = 20;
+    const totalTemplateWidth = templateSize + spacing;
+    const totalTemplateHeight = templateSize + 40;
     
-    // Don't resize canvas during normal operations to prevent jumping
-    // Only set height once during initialization or search changes
+    const templates = Array.from(loadedTemplates.values());
+    console.log(`Drawing ${templates.length} templates`); // Debug
+    
+    for (let i = 0; i < templates.length; i++) {
+        const template = templates[i];
+        console.log(`Drawing template: ${template.name}`); // Debug
+        
+        // Draw background for template
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(x, y, templateSize, templateSize);
+        
+        // Highlight selected template
+        if (selectedTemplate && selectedTemplate.id === template.id) {
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x - 2, y - 2, templateSize + 4, templateSize + 4);
+        }
+        
+        drawTemplatePreview(ctx, template, x, y, templateSize);
+        
+        // Draw template name label
+        ctx.fillStyle = selectedTemplate && selectedTemplate.id === template.id ? '#00d4ff' : '#ffffff';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(template.name, x + templateSize/2, y + templateSize + 20);
+        
+        x += totalTemplateWidth;
+        if (x >= 512 - templateSize) { // Use fixed canvas width
+            x = 0;
+            y += totalTemplateHeight;
+        }
+    }
 }
 
 function drawSprite(ctx, sprite, dx, dy, size) {
@@ -295,6 +438,54 @@ function drawSprite(ctx, sprite, dx, dy, size) {
     }
 }
 
+function drawTemplatePreview(ctx, template, dx, dy, size) {
+    const tileSize = size / Math.max(template.width, template.height);
+    
+    for (let y = 0; y < template.height; y++) {
+        for (let x = 0; x < template.width; x++) {
+            const tileName = template.tiles[y][x];
+            if (tileName) {
+                const sprite = getSprite(tileName);
+                if (sprite) {
+                    drawSprite(ctx, sprite, dx + x * tileSize, dy + y * tileSize, tileSize);
+                } else {
+                    console.warn(`Could not find sprite for ${tileName} in template ${template.name}`);
+                    // Draw a placeholder rectangle if sprite not found
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(dx + x * tileSize, dy + y * tileSize, tileSize, tileSize);
+                }
+            }
+        }
+    }
+}
+
+function switchMode(mode) {
+    currentMode = mode;
+    console.log(`Switching to mode: ${mode}`); // Debug
+    
+    // Update button states
+    const tilesBtn = document.getElementById('tiles-mode');
+    const templatesBtn = document.getElementById('templates-mode');
+    
+    if (mode === 'tiles') {
+        tilesBtn.classList.add('active');
+        templatesBtn.classList.remove('active');
+        selectedTemplate = null;
+        templatePreviewPosition = null; // Clear any template preview
+    } else {
+        tilesBtn.classList.remove('active');
+        templatesBtn.classList.add('active');
+        selectedTile = null; // Clear tile selection when switching to templates
+    }
+    
+    // Update search placeholder
+    const searchInput = document.getElementById('tile-search');
+    searchInput.placeholder = mode === 'tiles' ? '🔍 Search tiles...' : '🔍 Search templates...';
+    
+    console.log(`Templates loaded: ${loadedTemplates.size}`); // Debug
+    drawTileset();
+}
+
 function handleMapMouseMove(event) {
     const mapCanvas = document.getElementById('map-canvas');
     const rect = mapCanvas.getBoundingClientRect();
@@ -309,7 +500,18 @@ function handleMapMouseMove(event) {
     }
     
     // Update status bar with selection info
-    let statusText = `Position: ${x}, ${y} | Current: ${currentTile || 'empty'} | Selected: ${selectedTile}`;
+    let statusText = `Position: ${x}, ${y} | Current: ${currentTile || 'empty'}`;
+    
+    if (currentMode === 'templates' && selectedTemplate) {
+        statusText += ` | Template: ${selectedTemplate.name} (${selectedTemplate.width}x${selectedTemplate.height})`;
+        // Check if template fits at current position
+        if (x + selectedTemplate.width > mapWidth || y + selectedTemplate.height > mapHeight) {
+            statusText += ' | ⚠️ DOES NOT FIT';
+        }
+    } else {
+        statusText += ` | Selected: ${selectedTile}`;
+    }
+    
     if (selectedArea) {
         statusText += ` | Selection: ${selectedArea.width}x${selectedArea.height}`;
     }
@@ -317,6 +519,17 @@ function handleMapMouseMove(event) {
         statusText += ` | Copied: ${copiedData.width}x${copiedData.height}`;
     }
     statusBar.textContent = statusText;
+    
+    // Handle template preview
+    if (currentMode === 'templates' && selectedTemplate && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        if (!templatePreviewPosition || templatePreviewPosition.x !== x || templatePreviewPosition.y !== y) {
+            templatePreviewPosition = {x, y};
+            drawMap(); // Redraw to show template preview
+        }
+    } else if (templatePreviewPosition) {
+        templatePreviewPosition = null;
+        drawMap(); // Clear preview
+    }
     
     // Handle selection mode
     if (isSelecting && selectionStart && x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
@@ -388,9 +601,24 @@ function handleMapMouseUp(event) {
 
 function handleMapMouseLeave(event) {
     isMouseDown = false; // Stop painting when mouse leaves canvas
+    
+    // Clear template preview when mouse leaves canvas
+    if (templatePreviewPosition) {
+        templatePreviewPosition = null;
+        drawMap();
+    }
 }
 
 function paintTile(x, y, event) {
+    if (currentMode === 'templates' && selectedTemplate) {
+        // Handle template placement
+        if (event.type === 'mousedown' && event.button === 0) { // Left click only for templates
+            placeTemplate(x, y);
+        }
+        return;
+    }
+    
+    // Handle normal tile painting
     let tileValue = null;
     
     if (event.type === 'mousedown') {
@@ -411,12 +639,44 @@ function paintTile(x, y, event) {
     }
 }
 
+function placeTemplate(startX, startY) {
+    if (!selectedTemplate) return;
+    
+    // Check if template fits within map bounds
+    if (startX + selectedTemplate.width > mapWidth || 
+        startY + selectedTemplate.height > mapHeight) {
+        console.warn('Template does not fit at this position');
+        return;
+    }
+    
+    // Place all tiles from the template
+    for (let y = 0; y < selectedTemplate.height; y++) {
+        for (let x = 0; x < selectedTemplate.width; x++) {
+            const tileName = selectedTemplate.tiles[y][x];
+            if (tileName) {
+                mapData[startY + y][startX + x] = tileName;
+            }
+        }
+    }
+    
+    drawMap();
+    console.log(`Placed template ${selectedTemplate.name} at ${startX}, ${startY}`);
+}
+
 function handleTilesetClick(event) {
     const tilesetCanvas = document.getElementById('tileset-canvas');
     const rect = tilesetCanvas.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
     
+    if (currentMode === 'tiles') {
+        handleTileClick(clickX, clickY);
+    } else {
+        handleTemplateClick(clickX, clickY);
+    }
+}
+
+function handleTileClick(clickX, clickY) {
     const tileSize = TILE_SIZE * 3; // Match the display size
     const spacing = 12;
     const totalTileWidth = tileSize + spacing;
@@ -424,7 +684,7 @@ function handleTilesetClick(event) {
     
     const x = Math.floor(clickX / totalTileWidth);
     const y = Math.floor(clickY / totalTileHeight);
-    const tilesPerRow = Math.floor(tilesetCanvas.width / totalTileWidth);
+    const tilesPerRow = Math.floor(512 / totalTileWidth); // Use canvas width
     const index = y * tilesPerRow + x;
     
     // Use filtered sprites or all sprites
@@ -434,7 +694,33 @@ function handleTilesetClick(event) {
         const newSelectedTile = spritesToUse[index];
         if (newSelectedTile !== selectedTile) {
             selectedTile = newSelectedTile;
+            selectedTemplate = null; // Clear template selection
             console.log('Selected tile:', selectedTile);
+            drawTileset(); // Only redraw if selection actually changed
+        }
+    }
+}
+
+function handleTemplateClick(clickX, clickY) {
+    const templateSize = TILE_SIZE * 6; // Match the drawing size
+    const spacing = 20;
+    const totalTemplateWidth = templateSize + spacing;
+    const totalTemplateHeight = templateSize + 40; // Match the drawing height
+    
+    const x = Math.floor(clickX / totalTemplateWidth);
+    const y = Math.floor(clickY / totalTemplateHeight);
+    const templatesPerRow = Math.floor(512 / totalTemplateWidth); // Use canvas width
+    const index = y * templatesPerRow + x;
+    
+    const templates = Array.from(loadedTemplates.values());
+    console.log(`Template click at ${clickX}, ${clickY} -> grid ${x}, ${y} -> index ${index}`); // Debug
+    
+    if (index < templates.length) {
+        const newSelectedTemplate = templates[index];
+        if (!selectedTemplate || selectedTemplate.id !== newSelectedTemplate.id) {
+            selectedTemplate = newSelectedTemplate;
+            selectedTile = null; // Clear tile selection
+            console.log('Selected template:', selectedTemplate.name);
             drawTileset(); // Only redraw if selection actually changed
         }
     }

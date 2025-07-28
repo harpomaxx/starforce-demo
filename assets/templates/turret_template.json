@@ -1,0 +1,14 @@
+{
+  "id": "turret_complete",
+  "name": "Turret Structure",
+  "description": "Complete 2x3 turret installation", 
+  "width": 2,
+  "height": 3,
+  "tiles": [
+    ["turret-1", "turret-2"],
+    ["turret-5", "turret-6"],
+    ["turret-9", "turret-10"]
+  ],
+  "category": "structures",
+  "previewTile": "turret-5"
+}

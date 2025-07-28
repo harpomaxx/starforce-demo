@@ -18,7 +18,13 @@
         <div id="tileset-container">
             <div class="tileset-header">
                 <h3>🎨 Tileset</h3>
-                <input type="text" id="tile-search" placeholder="🔍 Search tiles..." />
+                <div class="tileset-controls">
+                    <div class="mode-toggle">
+                        <button id="tiles-mode" class="mode-btn active">🟦 Tiles</button>
+                        <button id="templates-mode" class="mode-btn">🏗️ Templates</button>
+                    </div>
+                    <input type="text" id="tile-search" placeholder="🔍 Search..." />
+                </div>
             </div>
             <canvas id="tileset-canvas" width="512" height="512"></canvas>
         </div>
@@ -72,6 +78,15 @@
                 <ul>
                     <li><strong>Shift + Drag:</strong> Select area</li>
                     <li><strong>Click:</strong> Clear selection</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h4>🏗️ Template Mode:</h4>
+                <ul>
+                    <li><strong>Templates Button:</strong> Switch to template mode</li>
+                    <li><strong>Click Template:</strong> Select multi-tile structure</li>
+                    <li><strong>Hover Map:</strong> Preview template placement</li>
+                    <li><strong>Left Click:</strong> Place complete template</li>
                 </ul>
             </div>
             <button id="close-help">Close</button>
