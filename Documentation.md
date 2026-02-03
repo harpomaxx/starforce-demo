@@ -56,6 +56,9 @@ Star Force Modular follows a **modular component architecture** with clear separ
 ```
 /
 ├── index.html          # Main HTML file with embedded CSS
+├── editor.html         # Map editor interface
+├── editor.js           # Map editor implementation
+├── editor.css          # Map editor styles
 ├── js/
 │   ├── main.js         # Game loop and orchestration
 │   ├── state.js        # Central state management
@@ -67,7 +70,11 @@ Star Force Modular follows a **modular component architecture** with clear separ
 │   ├── items.js        # Power-up system
 │   ├── input.js        # Input management
 │   ├── audio.js        # Audio engine
-│   └── utils.js        # Utility functions
+│   ├── utils.js        # Utility functions
+│   └── tileset.js      # Sprite definitions for editor
+├── assets/
+│   ├── sprites/        # Individual tile sprite definitions (JSON)
+│   └── templates/      # Multi-tile template definitions (JSON)
 ├── README.md           # Project documentation
 └── Documentation.md    # This file
 ```
@@ -669,5 +676,165 @@ Star Force Modular demonstrates excellent software architecture principles with:
 - **Maintainable codebase** with clear patterns and conventions
 
 The modular architecture makes it an excellent foundation for learning game development concepts, extending with new features, or building more complex games. The code quality is high, with consistent patterns, proper error handling, and thoughtful mobile optimization.
+
+## Map Editor System
+
+### Overview
+The Star Force project includes a sophisticated map editor (`editor.html`) that supports both individual tile placement and multi-tile template systems for efficient level design.
+
+### Architecture
+
+#### Editor Components
+- **editor.html**: Main editor interface with tileset panel and map canvas
+- **editor.js**: Editor logic with tile/template modes and placement systems
+- **editor.css**: Modern styling with responsive design
+- **assets/sprites/**: Individual 16x16 tile definitions in JSON format
+- **assets/templates/**: Multi-tile structure definitions for complex elements
+
+#### Template System
+The editor features a dual-mode system:
+
+1. **Tiles Mode**: Individual tile placement for detailed editing
+2. **Templates Mode**: Multi-tile structure placement for complex elements
+
+### Template System Implementation
+
+#### Template Definition Format
+Templates are defined in JSON files in `/assets/templates/`:
+
+```json
+{
+  "id": "template_id",
+  "name": "Display Name",
+  "description": "Template description",
+  "width": 4,
+  "height": 4,
+  "tiles": [
+    ["tile-0", "tile-1", "tile-2", "tile-3"],
+    ["tile-4", "tile-5", "tile-6", "tile-7"],
+    ["tile-8", "tile-9", "tile-10", "tile-11"],
+    ["tile-12", "tile-13", "tile-14", "tile-15"]
+  ],
+  "category": "structures",
+  "previewTile": "tile-5"
+}
+```
+
+#### Built-in Templates
+- **Base Structure**: 4x4 grid using base-0 through base-15 sprites
+- **Dome Structure**: 4x4 grid using dome-0 through dome-15 sprites  
+- **Turret Structure**: 2x3 grid using partial turret sprite set
+
+#### Adding New Templates
+
+**Step 1: Create Template JSON File**
+Create a new `.json` file in `/assets/templates/` with the template definition format above.
+
+**Step 2: Update Template Loading**
+Edit `editor.js` and add your template filename to the `loadAllTemplates()` function:
+
+```javascript
+async function loadAllTemplates() {
+    const templateNames = [
+        'base_template',
+        'dome_template', 
+        'turret_template',
+        'your_new_template'  // Add here
+    ];
+    // ... rest of function
+}
+```
+
+**Step 3: Template Design Guidelines**
+- **Tile Names**: Must exactly match existing sprite files in `/assets/sprites/`
+- **Dimensions**: Can be any width/height combination
+- **Empty Spaces**: Use `null` for empty positions in the template grid
+- **Preview Tile**: Choose a representative sprite for template icon display
+
+#### Template Features
+- **Visual Preview**: Hover over map to see template placement preview
+- **Boundary Validation**: Prevents placement outside map boundaries
+- **One-Click Placement**: Complete multi-tile structures with single click
+- **Smart Grid Alignment**: Templates align to tile grid automatically
+- **Visual Feedback**: Color-coded preview (blue=valid, red=invalid placement)
+
+### Editor Controls
+
+#### Mouse Controls
+- **Tiles Mode**: Left-click paint, right-click erase, drag for continuous painting
+- **Templates Mode**: Left-click to place complete template structure
+- **Selection Mode**: Shift+drag to select areas for copy/paste operations
+
+#### Keyboard Shortcuts
+- **Ctrl+S**: Export map to JSON
+- **Ctrl+O**: Load map from JSON file
+- **Ctrl+C/V**: Copy and paste selected areas
+- **G**: Toggle grid visibility
+- **H**: Show/hide help overlay
+
+#### Template Workflow
+1. Click "🏗️ Templates" button to switch to template mode
+2. Select desired template from tileset panel
+3. Hover over map to preview placement
+4. Left-click to place complete structure
+5. Switch back to "🟦 Tiles" mode for detail editing
+
+### Technical Implementation
+
+#### Template Loading System
+```javascript
+async function loadTemplate(templateName) {
+    const response = await fetch(`assets/templates/${templateName}.json`);
+    const template = await response.json();
+    loadedTemplates.set(templateName, template);
+    return template;
+}
+```
+
+#### Template Placement Logic
+```javascript
+function placeTemplate(startX, startY) {
+    // Boundary validation
+    if (startX + selectedTemplate.width > mapWidth || 
+        startY + selectedTemplate.height > mapHeight) {
+        return; // Cannot place
+    }
+    
+    // Place all tiles from template
+    for (let y = 0; y < selectedTemplate.height; y++) {
+        for (let x = 0; x < selectedTemplate.width; x++) {
+            const tileName = selectedTemplate.tiles[y][x];
+            if (tileName) {
+                mapData[startY + y][startX + x] = tileName;
+            }
+        }
+    }
+}
+```
+
+#### Template Preview System
+The editor provides real-time visual feedback:
+- **Blue outline**: Valid placement position
+- **Red outline**: Invalid placement (exceeds boundaries)
+- **Semi-transparent preview**: Shows exactly how template will appear
+- **Grid alignment**: Templates snap to tile grid automatically
+
+### Benefits of Template System
+
+1. **Efficiency**: Place complete 4x4 structures with single click instead of 16 individual tiles
+2. **Consistency**: Templates ensure proper tile arrangement and reduce errors
+3. **Productivity**: Dramatically faster level design workflow
+4. **Extensibility**: Easy to add new templates without code changes
+5. **Visual Feedback**: Clear preview system prevents placement errors
+
+### Map Export/Import
+- **Export Format**: JSON files with map dimensions and tile data
+- **File Naming**: Automatic naming with dimensions (e.g., `starforce_map_16x32.json`)
+- **Import Validation**: Automatic validation of map file format
+- **Backwards Compatibility**: Existing single-tile maps remain fully compatible
+
+This template system transforms the map editor from a tedious tile-by-tile tool into an efficient level design environment, making it easy to create complex structures while maintaining the flexibility for detailed editing.
+
+---
 
 This documentation should serve as a guide for developers looking to understand, maintain, or extend the Star Force Modular game.

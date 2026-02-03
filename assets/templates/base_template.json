@@ -1,0 +1,15 @@
+{
+  "id": "base_complete",
+  "name": "Base Structure",
+  "description": "Complete 4x4 base facility",
+  "width": 4,
+  "height": 4,
+  "tiles": [
+    ["base-0", "base-1", "base-2", "base-3"],
+    ["base-4", "base-5", "base-6", "base-7"],
+    ["base-8", "base-9", "base-10", "base-11"],
+    ["base-12", "base-13", "base-14", "base-15"]
+  ],
+  "category": "structures",
+  "previewTile": "base-5"
+}
